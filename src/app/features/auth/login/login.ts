@@ -1,30 +1,12 @@
 import { Component, ElementRef, inject } from '@angular/core';
 import {
-  AbstractControl,
   FormControl,
   FormGroup,
   ReactiveFormsModule,
-  ValidationErrors,
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-
-function requireDottedEmailDomain(
-  control: AbstractControl,
-): ValidationErrors | null {
-  const value = control.value;
-
-  if (typeof value !== 'string' || !value || !value.includes('@')) {
-    return null;
-  }
-
-  const domain = value.slice(value.lastIndexOf('@') + 1);
-  const labels = domain.split('.');
-
-  return labels.length >= 2 && labels.every((label) => label.length > 0)
-    ? null
-    : { emailDomain: true };
-}
+import { emailValidators } from '../../../shared/validators/email';
 
 @Component({
   selector: 'app-login',
@@ -41,12 +23,7 @@ export class Login {
   readonly form = new FormGroup({
     email: new FormControl('', {
       nonNullable: true,
-      validators: [
-        Validators.required,
-        Validators.email,
-        requireDottedEmailDomain,
-        Validators.maxLength(256),
-      ],
+      validators: emailValidators(),
     }),
     password: new FormControl('', {
       nonNullable: true,

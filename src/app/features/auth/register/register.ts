@@ -1,43 +1,16 @@
 import { Component, ElementRef, inject } from '@angular/core';
 import {
-  AbstractControl,
   FormControl,
   FormGroup,
   ReactiveFormsModule,
-  ValidationErrors,
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-
-function passwordMatchValidator(
-  control: AbstractControl,
-): ValidationErrors | null {
-  const password = control.get('password')?.value;
-  const confirmPassword = control.get('confirmPassword')?.value;
-
-  if (!confirmPassword) {
-    return null;
-  }
-
-  return password === confirmPassword ? null : { passwordMismatch: true };
-}
-
-function requireDottedEmailDomain(
-  control: AbstractControl,
-): ValidationErrors | null {
-  const value = control.value;
-
-  if (typeof value !== 'string' || !value || !value.includes('@')) {
-    return null;
-  }
-
-  const domain = value.slice(value.lastIndexOf('@') + 1);
-  const labels = domain.split('.');
-
-  return labels.length >= 2 && labels.every((label) => label.length > 0)
-    ? null
-    : { emailDomain: true };
-}
+import { emailValidators } from '../../../shared/validators/email';
+import {
+  passwordMatchValidator,
+  passwordValidators,
+} from '../../../shared/validators/password';
 
 @Component({
   selector: 'app-register',
@@ -64,21 +37,11 @@ export class Register {
       }),
       email: new FormControl('', {
         nonNullable: true,
-        validators: [
-          Validators.required,
-          Validators.email,
-          requireDottedEmailDomain,
-          Validators.maxLength(256),
-        ],
+        validators: emailValidators(),
       }),
       password: new FormControl('', {
         nonNullable: true,
-        validators: [
-          Validators.required,
-          Validators.minLength(8),
-          Validators.maxLength(72),
-          Validators.pattern(/^(?=.*[A-Za-z])(?=.*\d).+$/),
-        ],
+        validators: passwordValidators(),
       }),
       confirmPassword: new FormControl('', {
         nonNullable: true,
