@@ -1,1 +1,187 @@
-<p>register works!</p>
+<main class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-slate-900">
+  <section class="w-full max-w-lg">
+    <a
+      routerLink="/dashboard"
+      class="mb-8 inline-flex items-center gap-3"
+      aria-label="TaskPulse home"
+    >
+      <span class="flex size-11 items-center justify-center rounded-xl bg-indigo-600 text-xl font-bold text-white">
+        T
+      </span>
+      <span class="text-2xl font-bold tracking-tight">TaskPulse</span>
+    </a>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div class="mb-7">
+        <p class="mb-2 text-sm font-semibold text-indigo-600">GET STARTED</p>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Create your account</h1>
+        <p class="mt-2 text-sm leading-6 text-slate-500">
+          Make room for what matters. We'll help you keep track of it.
+        </p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <label for="firstName" class="mb-2 block text-sm font-medium text-slate-700">
+              First name
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              formControlName="firstName"
+              autocomplete="given-name"
+              placeholder="First name"
+              [attr.aria-invalid]="form.controls.firstName.invalid && form.controls.firstName.touched"
+              [attr.aria-describedby]="form.controls.firstName.touched && form.controls.firstName.invalid ? 'first-name-error' : null"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-hidden transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+            @if (form.controls.firstName.touched && form.controls.firstName.hasError('required')) {
+              <p id="first-name-error" class="mt-2 text-sm text-red-600">First name is required.</p>
+            } @else if (form.controls.firstName.touched && form.controls.firstName.hasError('maxlength')) {
+              <p id="first-name-error" class="mt-2 text-sm text-red-600">Maximum 100 characters.</p>
+            }
+          </div>
+
+          <div>
+            <label for="lastName" class="mb-2 block text-sm font-medium text-slate-700">
+              Last name
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              formControlName="lastName"
+              autocomplete="family-name"
+              placeholder="Last name"
+              [attr.aria-invalid]="form.controls.lastName.invalid && form.controls.lastName.touched"
+              [attr.aria-describedby]="form.controls.lastName.touched && form.controls.lastName.invalid ? 'last-name-error' : null"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-hidden transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+            @if (form.controls.lastName.touched && form.controls.lastName.hasError('required')) {
+              <p id="last-name-error" class="mt-2 text-sm text-red-600">Last name is required.</p>
+            } @else if (form.controls.lastName.touched && form.controls.lastName.hasError('maxlength')) {
+              <p id="last-name-error" class="mt-2 text-sm text-red-600">Maximum 100 characters.</p>
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="email" class="mb-2 block text-sm font-medium text-slate-700">
+            Email address
+          </label>
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            [attr.aria-describedby]="form.controls.email.touched && form.controls.email.invalid ? 'email-error' : null"
+            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-hidden transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+          @if (form.controls.email.touched && form.controls.email.hasError('required')) {
+            <p id="email-error" class="mt-2 text-sm text-red-600">Email is required.</p>
+          } @else if (form.controls.email.touched && form.controls.email.hasError('email')) {
+            <p id="email-error" class="mt-2 text-sm text-red-600">Enter a valid email address.</p>
+          } @else if (form.controls.email.touched && form.controls.email.hasError('emailDomain')) {
+            <p id="email-error" class="mt-2 text-sm text-red-600">
+              Enter an email address with a domain such as example.com.
+            </p>
+          } @else if (form.controls.email.touched && form.controls.email.hasError('maxlength')) {
+            <p id="email-error" class="mt-2 text-sm text-red-600">Email must be 256 characters or fewer.</p>
+          }
+        </div>
+
+        <div>
+          <label for="password" class="mb-2 block text-sm font-medium text-slate-700">
+            Password
+          </label>
+          <div class="relative">
+            <input
+              id="password"
+              [type]="passwordVisible ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="new-password"
+              placeholder="Create a password"
+              [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
+              [attr.aria-describedby]="form.controls.password.touched && form.controls.password.invalid ? 'password-help password-error' : 'password-help'"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20 text-sm outline-hidden transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+            <button
+              type="button"
+              (click)="passwordVisible = !passwordVisible"
+              [attr.aria-label]="passwordVisible ? 'Hide password' : 'Show password'"
+              class="absolute inset-y-0 right-3 my-auto text-sm font-medium text-slate-500 hover:text-indigo-600"
+            >
+              {{ passwordVisible ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+          <p id="password-help" class="mt-2 text-xs leading-5 text-slate-500">
+            8–72 characters, including at least one letter and one number.
+          </p>
+          @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+            <p id="password-error" class="mt-2 text-sm text-red-600">Password is required.</p>
+          } @else if (form.controls.password.touched && (form.controls.password.hasError('minlength') || form.controls.password.hasError('maxlength') || form.controls.password.hasError('pattern'))) {
+            <p id="password-error" class="mt-2 text-sm text-red-600">Password doesn't meet the requirements above.</p>
+          }
+        </div>
+
+        <div>
+          <label for="confirmPassword" class="mb-2 block text-sm font-medium text-slate-700">
+            Confirm password
+          </label>
+          <div class="relative">
+            <input
+              id="confirmPassword"
+              [type]="confirmPasswordVisible ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+              placeholder="Enter your password again"
+              [attr.aria-invalid]="(form.controls.confirmPassword.invalid || form.hasError('passwordMismatch')) && form.controls.confirmPassword.touched"
+              [attr.aria-describedby]="form.controls.confirmPassword.touched && (form.controls.confirmPassword.hasError('required') || form.hasError('passwordMismatch')) ? 'confirm-password-error' : null"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20 text-sm outline-hidden transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+            <button
+              type="button"
+              (click)="confirmPasswordVisible = !confirmPasswordVisible"
+              [attr.aria-label]="confirmPasswordVisible ? 'Hide confirmation password' : 'Show confirmation password'"
+              class="absolute inset-y-0 right-3 my-auto text-sm font-medium text-slate-500 hover:text-indigo-600"
+            >
+              {{ confirmPasswordVisible ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+          @if (form.controls.confirmPassword.touched && form.controls.confirmPassword.hasError('required')) {
+            <p id="confirm-password-error" class="mt-2 text-sm text-red-600">Please confirm your password.</p>
+          } @else if (form.controls.confirmPassword.touched && form.hasError('passwordMismatch')) {
+            <p id="confirm-password-error" class="mt-2 text-sm text-red-600">Passwords don't match.</p>
+          }
+        </div>
+
+        <button
+          type="submit"
+          class="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          Create account
+        </button>
+      </form>
+
+      <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p
+        role="status"
+        class="text-sm leading-5"
+        [class.mt-5]="statusMessage"
+        [class.rounded-xl]="statusMessage"
+        [class.bg-indigo-50]="statusMessage"
+        [class.p-3]="statusMessage"
+        [class.text-indigo-800]="statusMessage"
+      >{{ statusMessage }}</p>
+
+      <p class="mt-6 text-center text-sm text-slate-500">
+        Already have an account?
+        <a routerLink="/login" class="font-semibold text-indigo-600 hover:text-indigo-700">
+          Sign in
+        </a>
+      </p>
+    </div>
+  </section>
+</main>
