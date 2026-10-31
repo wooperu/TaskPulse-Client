@@ -1,4 +1,8 @@
 import { Task } from '../../shared/models/task.model';
+import { isOverdue } from '../../shared/utils/task-rules';
+
+// Re-exported so the dashboard component keeps importing it from here.
+export { isOverdue };
 
 export interface DashboardStats {
   total: number;
@@ -9,17 +13,12 @@ export interface DashboardStats {
   completionPercent: number;
 }
 
-/** `today` is a local 'YYYY-MM-DD' key; date-only strings compare correctly as text. */
-export function isOverdue(task: Task, today: string): boolean {
-  return !task.completed && task.dueDate !== null && task.dueDate < today;
-}
-
 export function summarizeTasks(
   tasks: readonly Task[],
   today: string,
 ): DashboardStats {
   const total = tasks.length;
-  const completed = tasks.filter((t) => t.completed).length;
+  const completed = tasks.filter((t) => t.status === 'completed').length;
   const overdue = tasks.filter((t) => isOverdue(t, today)).length;
 
   return {
@@ -34,7 +33,7 @@ export function summarizeTasks(
 /** Open tasks, earliest due date first; tasks without a due date go last. */
 export function upcomingTasks(tasks: readonly Task[], limit: number): Task[] {
   return tasks
-    .filter((t) => !t.completed)
+    .filter((t) => t.status !== 'completed')
     .sort((a, b) => {
       if (a.dueDate === b.dueDate) return 0;
       if (a.dueDate === null) return 1;
