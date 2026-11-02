@@ -49,6 +49,40 @@ export const routes: Routes = [
             .then(m => m.Dashboard),
       },
       {
+        path: 'workspaces',
+        title: 'My workspaces | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/my-workspaces/my-workspaces')
+            .then(m => m.MyWorkspaces),
+      },
+      {
+        path: 'workspaces/:workspaceId',
+        title: 'Workspace | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/workspace-board/workspace-board')
+            .then(m => m.WorkspaceBoard),
+      },{
+        path: 'workspaces/:workspaceId/tasks/new',
+        title: 'New task | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/task-edit/task-edit')
+            .then(m => m.TaskEdit),
+      },
+      {
+        path: 'workspaces/:workspaceId/tasks/:taskId',
+        title: 'Task | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/task-detail/task-detail')
+            .then(m => m.TaskDetail),
+      },
+      {
+        path: 'workspaces/:workspaceId/tasks/:taskId/edit',
+        title: 'Edit task | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/task-edit/task-edit')
+            .then(m => m.TaskEdit),
+      },
+      {
         path: 'tasks',
         title: 'My Tasks | TaskPulse',
         loadComponent: () =>
