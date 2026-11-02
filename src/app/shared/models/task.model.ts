@@ -14,6 +14,12 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
  * - `updatedAt` and sync fields (version, tombstone, local sync state) are
  *   left out: the backend has no updatedAt, and the sync contract is not agreed.
  */
+/** A shared document link. The backend only accepts certain hosts and requires a label (max 200 chars). */
+export interface LinkedDocument {
+  url: string;
+  label: string;
+}
+
 export interface Task {
   /** String so it can later hold a client-generated UUID. */
   id: string;
@@ -25,8 +31,29 @@ export interface Task {
   assigneeId: string | null;
   /** Date-only 'YYYY-MM-DD' (no time zone), or null when there is no due date. */
   dueDate: string | null;
+  linkedDocument: LinkedDocument | null;
   createdById: string;
   /** ISO 8601 timestamps. */
   createdAt: string;
   completedAt: string | null;
+}
+
+/** The editable fields of a task, as submitted by the create/edit form. */
+export interface TaskDraft {
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  dueDate: string | null;
+  assigneeId: string | null;
+  linkedDocument: LinkedDocument | null;
+}
+
+/** Backend comment bodies are non-blank and at most 500 characters. */
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  text: string;
+  /** ISO 8601 timestamp. */
+  createdAt: string;
 }
