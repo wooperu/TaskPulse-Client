@@ -1,0 +1,13 @@
+<div role="alert" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-900">
+  <p class="font-medium">Please verify your email address.</p>
+  <p class="mt-1">
+    Open the verification link we sent to <span class="font-medium break-all">{{ email() }}</span>, or request a new one.
+  </p>
+  <a
+    routerLink="/check-email"
+    [state]="{ email: email() }"
+    class="mt-2 inline-block font-semibold text-amber-900 underline hover:text-amber-950"
+  >
+    Resend verification email
+  </a>
+</div>

@@ -1,0 +1,89 @@
+<main class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-slate-900">
+  <section class="w-full max-w-md">
+    <a
+      routerLink="/dashboard"
+      class="mb-8 inline-flex items-center gap-3"
+      aria-label="TaskPulse home"
+    >
+      <span class="flex size-11 items-center justify-center rounded-xl bg-indigo-600 text-xl font-bold text-white">
+        T
+      </span>
+      <span class="text-2xl font-bold tracking-tight">TaskPulse</span>
+    </a>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      @switch (state()) {
+        @case ('confirm') {
+          <p class="mb-2 text-sm font-semibold text-indigo-600">VERIFY EMAIL</p>
+          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Confirm your email address</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500">
+            Select the button to finish verifying your email address.
+          </p>
+          <button
+            type="button"
+            (click)="verify()"
+            class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Verify my email
+          </button>
+        }
+        @case ('success') {
+          <p class="mb-2 text-sm font-semibold text-emerald-700">ALL SET</p>
+          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Your email is verified</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500">You can now sign in to your account.</p>
+          <a
+            routerLink="/login"
+            class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Sign in
+          </a>
+        }
+        @case ('failed') {
+          <p class="mb-2 text-sm font-semibold text-indigo-600">VERIFICATION LINK</p>
+          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">This link is invalid or has expired</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500">
+            Request a new verification email and use the most recent one.
+          </p>
+          <a
+            routerLink="/check-email"
+            class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Request a new link
+          </a>
+        }
+        @default {
+          <p class="mb-2 text-sm font-semibold text-indigo-600">VERIFICATION LINK</p>
+          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">This verification link isn't valid</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500">
+            The link is missing information. Request a new verification email and use the most recent one.
+          </p>
+          <a
+            routerLink="/check-email"
+            class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Request a new link
+          </a>
+        }
+      }
+
+      <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p
+        role="status"
+        class="text-sm leading-5"
+        [class.mt-5]="statusMessage()"
+        [class.rounded-xl]="statusMessage()"
+        [class.bg-indigo-50]="statusMessage()"
+        [class.p-3]="statusMessage()"
+        [class.text-indigo-800]="statusMessage()"
+      >{{ statusMessage() }}</p>
+
+      @if (state() !== 'success') {
+        <p class="mt-6 text-center text-sm text-slate-500">
+          <a routerLink="/login" class="font-semibold text-indigo-600 hover:text-indigo-700">
+            Back to sign in
+          </a>
+        </p>
+      }
+    </div>
+  </section>
+</main>

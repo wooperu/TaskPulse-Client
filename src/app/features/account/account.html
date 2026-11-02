@@ -1,0 +1,215 @@
+<div class="max-w-2xl space-y-8">
+  <header>
+    <h1 class="text-2xl font-semibold tracking-tight">Account settings</h1>
+    <p class="mt-1 text-sm text-zinc-500">Manage your profile, email, password and sessions.</p>
+  </header>
+
+  @if (isSampleData) {
+    <p
+      role="note"
+      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+    >
+      Showing a sample account. Changes aren't saved and are lost on reload.
+    </p>
+  }
+
+  <section aria-labelledby="profile-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
+    <h2 id="profile-heading" class="text-sm font-medium">Profile</h2>
+    <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" novalidate class="mt-4 space-y-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="profileFirstName" class="mb-1 block text-xs font-medium text-zinc-600">First name</label>
+          <input
+            id="profileFirstName"
+            type="text"
+            formControlName="firstName"
+            autocomplete="given-name"
+            [attr.aria-invalid]="firstNameError() !== null"
+            [attr.aria-describedby]="firstNameError() ? 'first-name-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (firstNameError(); as message) {
+            <p id="first-name-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+        <div>
+          <label for="profileLastName" class="mb-1 block text-xs font-medium text-zinc-600">Last name</label>
+          <input
+            id="profileLastName"
+            type="text"
+            formControlName="lastName"
+            autocomplete="family-name"
+            [attr.aria-invalid]="lastNameError() !== null"
+            [attr.aria-describedby]="lastNameError() ? 'last-name-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (lastNameError(); as message) {
+            <p id="last-name-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+      </div>
+      <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Save profile</button>
+    </form>
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p
+        role="status"
+        class="text-sm leading-5"
+        [class.mt-4]="profileMessage()"
+        [class.rounded-lg]="profileMessage()"
+        [class.bg-zinc-100]="profileMessage()"
+        [class.p-3]="profileMessage()"
+        [class.text-zinc-800]="profileMessage()"
+      >{{ profileMessage() }}</p>
+  </section>
+
+  <section aria-labelledby="email-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
+    <h2 id="email-heading" class="text-sm font-medium">Email</h2>
+    <p class="mt-3 text-sm text-zinc-700">
+      Current email: <span class="font-medium break-all">{{ user().email }}</span>
+      @if (user().isEmailVerified) {
+        <span class="ml-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800">Verified</span>
+      } @else {
+        <span class="ml-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-800">Not verified</span>
+      }
+    </p>
+
+    @if (!user().isEmailVerified) {
+      <app-unverified-email-notice class="mt-3 block" [email]="user().email" />
+    }
+
+    <form [formGroup]="emailForm" (ngSubmit)="changeEmail()" novalidate class="mt-4 space-y-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="newEmail" class="mb-1 block text-xs font-medium text-zinc-600">New email address</label>
+          <input
+            id="newEmail"
+            type="email"
+            formControlName="newEmail"
+            autocomplete="email"
+            [attr.aria-invalid]="newEmailError() !== null"
+            [attr.aria-describedby]="newEmailError() ? 'new-email-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (newEmailError(); as message) {
+            <p id="new-email-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+        <div>
+          <label for="emailPassword" class="mb-1 block text-xs font-medium text-zinc-600">Current password</label>
+          <input
+            id="emailPassword"
+            type="password"
+            formControlName="currentPassword"
+            autocomplete="current-password"
+            [attr.aria-invalid]="emailPasswordError() !== null"
+            [attr.aria-describedby]="emailPasswordError() ? 'email-password-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (emailPasswordError(); as message) {
+            <p id="email-password-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+      </div>
+      <p class="text-xs leading-5 text-zinc-500">
+        We'll send a verification link to the new address, and you'll be asked to sign in again.
+      </p>
+      <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Change email</button>
+    </form>
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p
+        role="status"
+        class="text-sm leading-5"
+        [class.mt-4]="emailMessage()"
+        [class.rounded-lg]="emailMessage()"
+        [class.bg-zinc-100]="emailMessage()"
+        [class.p-3]="emailMessage()"
+        [class.text-zinc-800]="emailMessage()"
+      >{{ emailMessage() }}</p>
+  </section>
+
+  <section aria-labelledby="password-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
+    <h2 id="password-heading" class="text-sm font-medium">Password</h2>
+    <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" novalidate class="mt-4 space-y-4">
+      <div>
+          <label for="currentPassword" class="mb-1 block text-xs font-medium text-zinc-600">Current password</label>
+          <input
+            id="currentPassword"
+            type="password"
+            formControlName="currentPassword"
+            autocomplete="current-password"
+            [attr.aria-invalid]="currentPasswordError() !== null"
+            [attr.aria-describedby]="currentPasswordError() ? 'current-password-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (currentPasswordError(); as message) {
+            <p id="current-password-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+      <div>
+          <label for="newPassword" class="mb-1 block text-xs font-medium text-zinc-600">New password</label>
+          <input
+            id="newPassword"
+            type="password"
+            formControlName="password"
+            autocomplete="new-password"
+            [attr.aria-invalid]="newPasswordError() !== null"
+            [attr.aria-describedby]="newPasswordError() ? 'new-password-help new-password-error' : 'new-password-help'"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          <p id="new-password-help" class="mt-2 text-xs leading-5 text-zinc-500">8–72 characters, including at least one letter and one number.</p>
+          @if (newPasswordError(); as message) {
+            <p id="new-password-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+      <div>
+          <label for="confirmNewPassword" class="mb-1 block text-xs font-medium text-zinc-600">Confirm new password</label>
+          <input
+            id="confirmNewPassword"
+            type="password"
+            formControlName="confirmPassword"
+            autocomplete="new-password"
+            [attr.aria-invalid]="confirmPasswordError() !== null"
+            [attr.aria-describedby]="confirmPasswordError() ? 'confirm-new-password-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (confirmPasswordError(); as message) {
+            <p id="confirm-new-password-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+      <p class="text-xs leading-5 text-zinc-500">Changing your password ends your other sessions.</p>
+      <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Change password</button>
+    </form>
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p
+        role="status"
+        class="text-sm leading-5"
+        [class.mt-4]="passwordMessage()"
+        [class.rounded-lg]="passwordMessage()"
+        [class.bg-zinc-100]="passwordMessage()"
+        [class.p-3]="passwordMessage()"
+        [class.text-zinc-800]="passwordMessage()"
+      >{{ passwordMessage() }}</p>
+  </section>
+
+  <section aria-labelledby="sessions-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
+    <h2 id="sessions-heading" class="text-sm font-medium">Sessions</h2>
+    <p class="mt-3 text-sm text-zinc-600">Sign out everywhere you're signed in, including this device.</p>
+    <button
+      type="button"
+      (click)="signOutEverywhere()"
+      class="mt-4 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+    >
+      Sign out of all devices
+    </button>
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p
+        role="status"
+        class="text-sm leading-5"
+        [class.mt-4]="sessionsMessage()"
+        [class.rounded-lg]="sessionsMessage()"
+        [class.bg-zinc-100]="sessionsMessage()"
+        [class.p-3]="sessionsMessage()"
+        [class.text-zinc-800]="sessionsMessage()"
+      >{{ sessionsMessage() }}</p>
+  </section>
+</div>

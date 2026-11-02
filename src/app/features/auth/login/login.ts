@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject } from '@angular/core';
+import { Component, ElementRef, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -7,10 +7,11 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { emailValidators } from '../../../shared/validators/email';
+import { UnverifiedEmailNotice } from '../../../shared/components/unverified-email-notice/unverified-email-notice';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, UnverifiedEmailNotice],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
@@ -19,6 +20,9 @@ export class Login {
 
   passwordVisible = false;
   statusMessage = '';
+
+  /** Set to the typed email when login answers 403 Login.EmailNotVerified (not reachable until login is wired). */
+  protected readonly unverifiedEmail = signal<string | null>(null);
 
   readonly form = new FormGroup({
     email: new FormControl('', {
