@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { Workspace } from '../../shared/models/workspace.model';
-import { MOCK_CURRENT_USER_ID, MOCK_MEMBER_NAMES } from './mock-tasks';
+import { MOCK_MEMBERS, MockMember } from './mock-tasks';
 import { MOCK_WORKSPACES } from './mock-workspaces';
 
 /** Single boundary between the UI and workspace data (mock-backed for now). */
@@ -32,10 +32,14 @@ export class WorkspaceService {
     return workspace;
   }
 
+  /** People a task can be assigned to. Mock list until a members endpoint exists. */
+  memberOptions(): readonly MockMember[] {
+    return MOCK_MEMBERS;
+  }
+
   /** Display name for a member. Mock lookup until a members endpoint exists. */
   memberName(userId: string | null): string {
     if (userId === null) return 'Unassigned';
-    if (userId === MOCK_CURRENT_USER_ID) return 'You';
-    return MOCK_MEMBER_NAMES[userId] ?? 'Teammate';
+    return MOCK_MEMBERS.find((member) => member.id === userId)?.name ?? 'Teammate';
   }
 }

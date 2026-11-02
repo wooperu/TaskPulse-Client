@@ -1,0 +1,217 @@
+@if (workspace(); as ws) {
+  @if (task(); as t) {
+    <div class="space-y-6">
+      <header>
+        <a [routerLink]="['/workspaces', ws.id]" class="text-sm text-zinc-500 hover:text-zinc-900">
+          <span aria-hidden="true">←</span> {{ ws.name }}
+        </a>
+        <h1 class="mt-3 break-words text-2xl font-semibold tracking-tight">{{ t.title }}</h1>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          @if (overdue()) {
+            <span class="rounded-full border px-2 py-0.5 text-xs" [class]="overdueChip">Overdue</span>
+          }
+          <span class="rounded-full border px-2 py-0.5 text-xs" [class]="statusChip[t.status]">
+            {{ statusLabels[t.status] }}
+          </span>
+          <span class="rounded-full border px-2 py-0.5 text-xs" [class]="priorityChip[t.priority]">
+            {{ priorityLabels[t.priority] }} priority
+          </span>
+        </div>
+      </header>
+
+      @if (isSampleData) {
+        <p
+          role="note"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        >
+          Showing sample data. Changes aren't saved and are lost on reload.
+        </p>
+      }
+
+      @if (ws.isArchived) {
+        <p role="note" class="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-800">
+          This workspace is archived and read-only.
+        </p>
+      } @else {
+        <div class="flex flex-wrap items-center gap-3">
+          @switch (t.status) {
+            @case ('pending') {
+              <button
+                type="button"
+                (click)="start()"
+                class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+              >
+                Start task
+              </button>
+            }
+            @case ('ongoing') {
+              <button
+                type="button"
+                (click)="complete()"
+                class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+              >
+                Mark as completed
+              </button>
+            }
+            @case ('completed') {
+              <button
+                type="button"
+                (click)="reopen()"
+                class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+              >
+                Reopen task
+              </button>
+            }
+          }
+
+          @if (t.status !== 'completed') {
+            <a
+              [routerLink]="['/workspaces', ws.id, 'tasks', t.id, 'edit']"
+              class="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+            >
+              Edit task
+            </a>
+          }
+        </div>
+      }
+
+      <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+      <section aria-labelledby="details-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="details-heading" class="text-sm font-medium">Details</h2>
+        <dl class="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt class="text-xs text-zinc-500">Assignee</dt>
+            <dd class="mt-0.5">{{ assigneeLabel() }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-zinc-500">Due date</dt>
+            <dd class="mt-0.5" [class.text-red-600]="overdue()">
+              @if (t.dueDate) {
+                {{ t.dueDate | date: 'MMM d, y' }}
+              } @else {
+                No due date
+              }
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs text-zinc-500">Created by</dt>
+            <dd class="mt-0.5">{{ creatorLabel() }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-zinc-500">Created</dt>
+            <dd class="mt-0.5">{{ t.createdAt | date: 'MMM d, y' }}</dd>
+          </div>
+          @if (t.completedAt) {
+            <div>
+              <dt class="text-xs text-zinc-500">Completed</dt>
+              <dd class="mt-0.5">{{ t.completedAt | date: 'MMM d, y' }}</dd>
+            </div>
+          }
+        </dl>
+      </section>
+
+      <section aria-labelledby="description-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="description-heading" class="text-sm font-medium">Description</h2>
+        @if (t.description) {
+          <p class="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-800">{{ t.description }}</p>
+        } @else {
+          <p class="mt-3 text-sm text-zinc-500">No description.</p>
+        }
+      </section>
+
+      @if (t.linkedDocument; as doc) {
+        <section aria-labelledby="document-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+          <h2 id="document-heading" class="text-sm font-medium">Linked document</h2>
+          <p class="mt-3 text-sm">
+            <a
+              [href]="doc.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="break-words font-medium text-indigo-700 underline hover:text-indigo-900"
+            >{{ doc.label }}<span class="sr-only"> (opens in a new tab)</span></a>
+          </p>
+        </section>
+      }
+
+      <section aria-labelledby="comments-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="comments-heading" class="text-sm font-medium">Comments ({{ comments().length }})</h2>
+
+        @if (comments().length === 0) {
+          <p class="mt-3 text-sm text-zinc-500">No comments yet.</p>
+        } @else {
+          <ul class="mt-3 divide-y divide-zinc-100" aria-label="Comments">
+            @for (item of comments(); track item.comment.id) {
+              <li class="flex items-start justify-between gap-4 py-3">
+                <div class="min-w-0">
+                  <p class="text-xs text-zinc-500">
+                    <span class="font-medium text-zinc-800">{{ item.authorLabel }}</span>
+                    · {{ item.comment.createdAt | date: 'MMM d, h:mm a' }}
+                  </p>
+                  <p class="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-800">{{ item.comment.text }}</p>
+                </div>
+                @if (item.mine && !ws.isArchived) {
+                  <button
+                    type="button"
+                    (click)="deleteComment(item.comment.id)"
+                    class="shrink-0 text-xs font-medium text-zinc-600 underline hover:text-red-700"
+                  >
+                    Delete<span class="sr-only"> your comment from {{ item.comment.createdAt | date: 'MMM d, h:mm a' }}</span>
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (!ws.isArchived) {
+          <form [formGroup]="commentForm" (ngSubmit)="addComment()" novalidate class="mt-4 space-y-3">
+            <div>
+              <label for="commentBody" class="mb-1 block text-xs font-medium text-zinc-600">Add a comment</label>
+              <textarea
+                id="commentBody"
+                formControlName="commentBody"
+                rows="3"
+                [attr.aria-invalid]="commentError() !== null"
+                [attr.aria-describedby]="commentError() ? 'comment-error' : null"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+              ></textarea>
+              @if (commentError(); as message) {
+                <p id="comment-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+              }
+            </div>
+            <button
+              type="submit"
+              class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+            >
+              Add comment
+            </button>
+          </form>
+        }
+      </section>
+    </div>
+  } @else {
+    <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+      <h1 class="text-base font-medium">Task not found</h1>
+      <p class="mt-1 text-sm text-zinc-500">It may have been removed, or the link is wrong.</p>
+      <a
+        [routerLink]="['/workspaces', ws.id]"
+        class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+      >
+        Back to {{ ws.name }}
+      </a>
+    </section>
+  }
+} @else {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">Workspace not found</h1>
+    <p class="mt-1 text-sm text-zinc-500">It may have been removed, or the link is wrong.</p>
+    <a
+      routerLink="/workspaces"
+      class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+    >
+      Back to my workspaces
+    </a>
+  </section>
+}

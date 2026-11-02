@@ -1,4 +1,10 @@
-import { Task, TaskPriority, TaskStatus } from '../../shared/models/task.model';
+import {
+  LinkedDocument,
+  Task,
+  TaskComment,
+  TaskPriority,
+  TaskStatus,
+} from '../../shared/models/task.model';
 import { dateKeyFromToday } from '../../shared/utils/date-key';
 
 /**
@@ -10,10 +16,17 @@ import { dateKeyFromToday } from '../../shared/utils/date-key';
 /** Stand-in for the signed-in user until the auth session exists. */
 export const MOCK_CURRENT_USER_ID = 'user-me';
 
-export const MOCK_MEMBER_NAMES: Readonly<Record<string, string>> = {
-  'user-ana': 'Ana Reyes',
-  'user-ben': 'Ben Cruz',
-};
+export interface MockMember {
+  id: string;
+  name: string;
+}
+
+/** Stand-in for a workspace members endpoint (all mock workspaces share these members). */
+export const MOCK_MEMBERS: readonly MockMember[] = [
+  { id: MOCK_CURRENT_USER_ID, name: 'You' },
+  { id: 'user-ana', name: 'Ana Reyes' },
+  { id: 'user-ben', name: 'Ben Cruz' },
+];
 
 interface MockTaskInput {
   id: string;
@@ -24,6 +37,7 @@ interface MockTaskInput {
   dueInDays: number | null;
   assigneeId: string | null;
   description?: string;
+  linkedDocument?: LinkedDocument;
 }
 
 function mock(input: MockTaskInput): Task {
@@ -37,6 +51,7 @@ function mock(input: MockTaskInput): Task {
     priority: input.priority,
     assigneeId: input.assigneeId,
     dueDate: input.dueInDays === null ? null : dateKeyFromToday(input.dueInDays),
+    linkedDocument: input.linkedDocument ?? null,
     createdById: MOCK_CURRENT_USER_ID,
     createdAt: now,
     completedAt: input.status === 'completed' ? now : null,
@@ -45,13 +60,13 @@ function mock(input: MockTaskInput): Task {
 
 export const MOCK_TASKS: readonly Task[] = [
   // Product Team
-  mock({ id: 'mock-1', workspaceId: 'ws-product', title: 'Review sprint board', status: 'ongoing', priority: 'high', dueInDays: -2, assigneeId: 'user-me' }),
+  mock({ id: 'mock-1', workspaceId: 'ws-product', title: 'Review sprint board', status: 'ongoing', priority: 'high', dueInDays: -2, assigneeId: 'user-me', description: 'Go through every open card and move anything stale to the backlog.' }),
   mock({ id: 'mock-2', workspaceId: 'ws-product', title: 'Reply to design feedback', status: 'pending', priority: 'medium', dueInDays: -1, assigneeId: 'user-me' }),
-  mock({ id: 'mock-3', workspaceId: 'ws-product', title: 'Draft release notes', status: 'ongoing', priority: 'medium', dueInDays: 0, assigneeId: 'user-ana' }),
+  mock({ id: 'mock-3', workspaceId: 'ws-product', title: 'Draft release notes', status: 'ongoing', priority: 'medium', dueInDays: 0, assigneeId: 'user-ana', description: 'Summarise what shipped this sprint for the changelog.', linkedDocument: { url: 'https://docs.google.com/document/d/1sample-release-notes/edit', label: 'Release notes draft' } }),
   mock({ id: 'mock-9', workspaceId: 'ws-product', title: 'Prepare demo script', status: 'pending', priority: 'urgent', dueInDays: 1, assigneeId: 'user-ana' }),
   mock({ id: 'mock-4', workspaceId: 'ws-product', title: 'Plan next week', status: 'pending', priority: 'low', dueInDays: 3, assigneeId: 'user-me' }),
   mock({ id: 'mock-5', workspaceId: 'ws-product', title: 'Update onboarding checklist', status: 'pending', priority: 'low', dueInDays: 7, assigneeId: 'user-ben' }),
-  mock({ id: 'mock-6', workspaceId: 'ws-product', title: 'Read API proposal', status: 'pending', priority: 'high', dueInDays: null, assigneeId: null }),
+  mock({ id: 'mock-6', workspaceId: 'ws-product', title: 'Read API proposal', status: 'pending', priority: 'high', dueInDays: null, assigneeId: null, linkedDocument: { url: 'https://github.com/example/taskpulse-api/issues/12', label: 'API proposal discussion' } }),
   mock({ id: 'mock-7', workspaceId: 'ws-product', title: 'Set up weekly sync', status: 'completed', priority: 'low', dueInDays: -5, assigneeId: 'user-me' }),
   mock({ id: 'mock-8', workspaceId: 'ws-product', title: 'Fix login typo', status: 'completed', priority: 'medium', dueInDays: -3, assigneeId: 'user-ben' }),
   // Design Sprint
@@ -61,4 +76,14 @@ export const MOCK_TASKS: readonly Task[] = [
   // Spring Launch (archived)
   mock({ id: 'mock-13', workspaceId: 'ws-launch', title: 'Publish changelog', status: 'completed', priority: 'medium', dueInDays: -20, assigneeId: 'user-me' }),
   mock({ id: 'mock-14', workspaceId: 'ws-launch', title: 'Archive old assets', status: 'completed', priority: 'low', dueInDays: -18, assigneeId: null }),
+];
+
+function hoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 3_600_000).toISOString();
+}
+
+export const MOCK_COMMENTS: readonly TaskComment[] = [
+  { id: 'mock-c1', taskId: 'mock-1', authorId: 'user-ana', text: 'Can we move this review to Thursday?', createdAt: hoursAgo(30) },
+  { id: 'mock-c2', taskId: 'mock-1', authorId: 'user-me', text: 'Thursday works. I will update the board.', createdAt: hoursAgo(26) },
+  { id: 'mock-c3', taskId: 'mock-3', authorId: 'user-ben', text: 'I added the API notes to the draft.', createdAt: hoursAgo(5) },
 ];

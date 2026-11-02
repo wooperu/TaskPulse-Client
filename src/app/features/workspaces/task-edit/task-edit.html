@@ -1,0 +1,199 @@
+@if (!workspace) {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">Workspace not found</h1>
+    <p class="mt-1 text-sm text-zinc-500">It may have been removed, or the link is wrong.</p>
+    <a
+      routerLink="/workspaces"
+      class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+    >
+      Back to my workspaces
+    </a>
+  </section>
+} @else if (workspace.isArchived) {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">This workspace is archived</h1>
+    <p class="mt-1 text-sm text-zinc-500">Archived workspaces are read-only, so tasks can't be added or changed.</p>
+    <a
+      [routerLink]="['/workspaces', workspace.id]"
+      class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+    >
+      Back to {{ workspace.name }}
+    </a>
+  </section>
+} @else if (isEdit && !existing) {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">Task not found</h1>
+    <p class="mt-1 text-sm text-zinc-500">It may have been removed, or the link is wrong.</p>
+    <a
+      [routerLink]="['/workspaces', workspace.id]"
+      class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+    >
+      Back to {{ workspace.name }}
+    </a>
+  </section>
+} @else if (existing && existing.status === 'completed') {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">Completed tasks can't be edited</h1>
+    <p class="mt-1 text-sm text-zinc-500">Reopen the task first if something needs to change.</p>
+    <a
+      [routerLink]="['/workspaces', workspace.id, 'tasks', existing.id]"
+      class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+    >
+      Back to the task
+    </a>
+  </section>
+} @else {
+  <div class="max-w-2xl space-y-6">
+    <header>
+      <a
+        [routerLink]="existing ? ['/workspaces', workspace.id, 'tasks', existing.id] : ['/workspaces', workspace.id]"
+        class="text-sm text-zinc-500 hover:text-zinc-900"
+      >
+        <span aria-hidden="true">←</span> {{ existing ? 'Back to the task' : workspace.name }}
+      </a>
+      <h1 class="mt-3 text-2xl font-semibold tracking-tight">{{ isEdit ? 'Edit task' : 'New task' }}</h1>
+      <p class="mt-1 text-sm text-zinc-500">in {{ workspace.name }}</p>
+    </header>
+
+    @if (isSampleData) {
+      <p
+        role="note"
+        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+      >
+        Showing sample data. Changes aren't saved and are lost on reload.
+      </p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
+      <div>
+        <label for="title" class="mb-1 block text-sm font-medium text-zinc-700">Title</label>
+        <input
+          id="title"
+          type="text"
+          formControlName="title"
+          autocomplete="off"
+          [attr.aria-invalid]="titleError() !== null"
+          [attr.aria-describedby]="titleError() ? 'title-error' : null"
+          class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        />
+        @if (titleError(); as message) {
+          <p id="title-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+        }
+      </div>
+
+      <div>
+        <label for="description" class="mb-1 block text-sm font-medium text-zinc-700">
+          Description <span class="font-normal text-zinc-500">(optional)</span>
+        </label>
+        <textarea
+          id="description"
+          formControlName="description"
+          rows="4"
+          class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        ></textarea>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label for="dueDate" class="mb-1 block text-sm font-medium text-zinc-700">
+            Due date <span class="font-normal text-zinc-500">(optional)</span>
+          </label>
+          <input
+            id="dueDate"
+            type="date"
+            formControlName="dueDate"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+        </div>
+
+        <div>
+          <label for="priority" class="mb-1 block text-sm font-medium text-zinc-700">Priority</label>
+          <select
+            id="priority"
+            formControlName="priority"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          >
+            @for (option of priorities; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label for="assigneeId" class="mb-1 block text-sm font-medium text-zinc-700">Assignee</label>
+        <select
+          id="assigneeId"
+          formControlName="assigneeId"
+          class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200 sm:max-w-xs"
+        >
+          <option value="">Unassigned</option>
+          @for (member of members; track member.id) {
+            <option [value]="member.id">{{ member.name }}</option>
+          }
+        </select>
+      </div>
+
+      <fieldset formGroupName="document" class="space-y-4">
+        <legend class="text-sm font-medium text-zinc-700">
+          Linked document <span class="font-normal text-zinc-500">(optional)</span>
+        </legend>
+
+        <div>
+          <label for="documentUrl" class="mb-1 block text-xs font-medium text-zinc-600">Link</label>
+          <input
+            id="documentUrl"
+            type="url"
+            formControlName="url"
+            autocomplete="off"
+            placeholder="https://docs.google.com/document/d/..."
+            [attr.aria-invalid]="documentUrlError() !== null"
+            [attr.aria-describedby]="documentUrlError() ? 'document-url-help document-url-error' : 'document-url-help'"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          <p id="document-url-help" class="mt-2 text-xs leading-5 text-zinc-500">
+            Google Docs, Microsoft 365, OneDrive or GitHub links only.
+          </p>
+          @if (documentUrlError(); as message) {
+            <p id="document-url-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+
+        <div>
+          <label for="documentLabel" class="mb-1 block text-xs font-medium text-zinc-600">Label</label>
+          <input
+            id="documentLabel"
+            type="text"
+            formControlName="label"
+            autocomplete="off"
+            placeholder="For example, Release notes draft"
+            [attr.aria-invalid]="documentLabelError() !== null"
+            [attr.aria-describedby]="documentLabelError() ? 'document-label-error' : null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+          />
+          @if (documentLabelError(); as message) {
+            <p id="document-label-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
+        </div>
+      </fieldset>
+
+      <div class="flex flex-wrap items-center gap-3 pt-1">
+        <button
+          type="submit"
+          class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+        >
+          {{ isEdit ? 'Save changes' : 'Create task' }}
+        </button>
+        <a
+          [routerLink]="existing ? ['/workspaces', workspace.id, 'tasks', existing.id] : ['/workspaces', workspace.id]"
+          class="rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900"
+        >
+          Cancel
+        </a>
+      </div>
+
+      <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      <p role="status" class="text-sm text-red-600">{{ saveError() }}</p>
+    </form>
+  </div>
+}
