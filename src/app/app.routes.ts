@@ -89,7 +89,28 @@ export const routes: Routes = [
           import('./features/tasks/tasks')
             .then(m => m.Tasks),
       },
+      {
+        path: 'account',
+        title: 'Account settings | TaskPulse',
+        loadComponent: () =>
+          import('./features/account/account')
+            .then(m => m.Account),
+      },
     ],
+  },
+  {
+    path: 'check-email',
+    title: 'Check your email | TaskPulse',
+    loadComponent: () =>
+      import('./features/auth/check-email/check-email')
+        .then(m => m.CheckEmail),
+  },
+  {
+    path: 'verify-email',
+    title: 'Verify email | TaskPulse',
+    loadComponent: () =>
+      import('./features/auth/verify-email/verify-email')
+        .then(m => m.VerifyEmail),
   },
   {
     path: '**',

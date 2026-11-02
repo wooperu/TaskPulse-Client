@@ -36,3 +36,20 @@ export function passwordMatchValidator(
 
   return password === confirmPassword ? null : { passwordMismatch: true };
 }
+
+/**
+ * Group validator for the change-password form: the new password (`password`)
+ * must differ from `currentPassword`, as the backend requires.
+ */
+export function passwordMustDifferValidator(
+  control: AbstractControl,
+): ValidationErrors | null {
+  const current = control.get('currentPassword')?.value;
+  const next = control.get('password')?.value;
+
+  if (!current || !next) {
+    return null;
+  }
+
+  return current === next ? { passwordUnchanged: true } : null;
+}

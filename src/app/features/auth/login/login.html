@@ -20,6 +20,10 @@
         </p>
       </div>
 
+      @if (unverifiedEmail(); as email) {
+        <app-unverified-email-notice class="mb-5 block" [email]="email" />
+      }
+
       <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
         <div>
           <label for="email" class="mb-2 block text-sm font-medium text-slate-700">
