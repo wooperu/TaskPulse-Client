@@ -1,0 +1,73 @@
+<div class="max-w-2xl space-y-6">
+  <header>
+    <h1 id="invitations-heading" tabindex="-1" class="text-2xl font-semibold tracking-tight outline-hidden">My invitations</h1>
+    <p class="mt-1 text-sm text-zinc-500">Workspaces that invited you to join.</p>
+  </header>
+
+  @if (isSampleData) {
+    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      Showing sample data. Changes aren't saved and are lost on reload.
+    </p>
+  }
+
+  <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+  <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+  @if (joined(); as workspace) {
+    <p class="text-sm">
+      <a [routerLink]="['/workspaces', workspace.id]" class="font-medium text-indigo-700 underline hover:text-indigo-900">
+        Open {{ workspace.name }}
+      </a>
+    </p>
+  }
+
+  @if (pending().length === 0) {
+    @if (expired().length === 0) {
+      <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+        <h2 class="text-base font-medium">No invitations</h2>
+        <p class="mt-1 text-sm text-zinc-500">When someone invites you to a workspace, it will show up here.</p>
+      </section>
+    } @else {
+      <p class="text-sm text-zinc-600">No pending invitations.</p>
+    }
+  }
+
+  @if (pending().length > 0) {
+    <section aria-labelledby="pending-heading" class="rounded-xl border border-zinc-200 bg-white">
+      <h2 id="pending-heading" class="px-5 py-4 text-sm font-medium">Pending ({{ pending().length }})</h2>
+      <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Pending invitations">
+        @for (row of pending(); track row.invitation.id) {
+          <li class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <p class="break-words text-sm font-medium">{{ row.invitation.workspaceName }}</p>
+              <p class="mt-0.5 text-xs text-zinc-500">
+                Invited by {{ row.invitation.invitedByName }} as {{ roleLabels[row.invitation.role] }}
+                · Expires {{ row.invitation.expiresAt | date: 'MMM d' }}
+              </p>
+            </div>
+            <button type="button" (click)="accept(row.invitation.id)" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 shrink-0">
+              Accept<span class="sr-only"> invitation to {{ row.invitation.workspaceName }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (expired().length > 0) {
+    <section aria-labelledby="expired-heading" class="rounded-xl border border-zinc-200 bg-white">
+      <h2 id="expired-heading" class="px-5 py-4 text-sm font-medium">Expired ({{ expired().length }})</h2>
+      <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Expired invitations">
+        @for (row of expired(); track row.invitation.id) {
+          <li class="px-5 py-4">
+            <p class="break-words text-sm font-medium text-zinc-600">{{ row.invitation.workspaceName }}</p>
+            <p class="mt-0.5 text-xs text-zinc-500">
+              Invited by {{ row.invitation.invitedByName }} · Expired {{ row.invitation.expiresAt | date: 'MMM d' }}.
+              Ask them to send a new invitation.
+            </p>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</div>
