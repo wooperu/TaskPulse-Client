@@ -57,3 +57,9 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Google Drive development setup
+
+The Documents Workspace Google Drive upload flow requires a Google OAuth Web Client ID. See
+[docs/google-drive-setup.md](docs/google-drive-setup.md) for setup, security, and manual verification
+instructions.

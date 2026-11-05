@@ -1,0 +1,121 @@
+<section
+  class="overflow-hidden rounded-xl border border-zinc-200 bg-white"
+  aria-labelledby="google-editor-heading"
+>
+  <header
+    class="flex flex-col gap-4 border-b border-zinc-200 p-4 lg:flex-row lg:items-end lg:justify-between"
+  >
+    <div class="min-w-0">
+      <p class="text-xs font-medium uppercase tracking-wider text-indigo-600">Google Docs editor</p>
+      <h2 id="google-editor-heading" class="mt-1 truncate text-base font-semibold">
+        {{ document().title }}
+      </h2>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label for="google-session" class="mb-1 block text-xs font-medium text-zinc-600"
+          >Google session</label
+        >
+        <select
+          id="google-session"
+          [value]="session()"
+          (change)="changeSession($event)"
+          class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+          <option value="automatic">Automatic</option>
+          <option value="0">Session 0</option>
+          <option value="1">Session 1</option>
+          <option value="2">Session 2</option>
+          <option value="3">Session 3</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="editor-mode" class="mb-1 block text-xs font-medium text-zinc-600"
+          >Editor URL</label
+        >
+        <select
+          id="editor-mode"
+          [value]="mode()"
+          (change)="changeMode($event)"
+          class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+          <option value="embedded">Embedded</option>
+          <option value="normal">Normal /edit</option>
+        </select>
+      </div>
+
+      @if (isDesktop()) {
+        <button
+          type="button"
+          (click)="reload()"
+          class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Reload editor
+        </button>
+      }
+
+      <a
+        [href]="urls().direct"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+      >
+        Open in Google Docs
+      </a>
+      @if (document().googleDriveWebViewLink; as driveUrl) {
+        <a
+          [href]="driveUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Open in Google Drive
+        </a>
+      }
+    </div>
+  </header>
+
+  <p class="border-b border-zinc-200 bg-indigo-50 px-4 py-2 text-xs leading-5 text-indigo-900">
+    Sessions are positions in this browser profile, not account identities. Sign in to Google first
+    and make sure the selected session has access to this document.
+  </p>
+
+  @if (isDesktop()) {
+    <iframe
+      #editorFrame
+      [src]="trustedEditorUrl()"
+      [title]="'Edit ' + document().title + ' in Google Docs'"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allow="clipboard-read; clipboard-write"
+      class="block h-[72vh] min-h-[620px] w-full border-0 bg-white"
+    ></iframe>
+  } @else {
+    <div class="px-6 py-12 text-center">
+      <h3 class="text-base font-medium">Editing inside TaskPulse requires a desktop or laptop</h3>
+      <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-500">
+        TaskPulse does not mount the embedded editor on phone-sized screens. Google may still let
+        you edit through Google Docs or its mobile app.
+      </p>
+      <a
+        [href]="urls().direct"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+      >
+        Open in Google Docs
+      </a>
+      @if (document().googleDriveWebViewLink; as driveUrl) {
+        <a
+          [href]="driveUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ml-2 mt-5 inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Open in Google Drive
+        </a>
+      }
+    </div>
+  }
+</section>
