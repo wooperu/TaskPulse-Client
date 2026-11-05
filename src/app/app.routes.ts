@@ -83,6 +83,27 @@ export const routes: Routes = [
             .then(m => m.TaskEdit),
       },
       {
+        path: 'workspaces/:workspaceId/members',
+        title: 'Members | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/members/members')
+            .then(m => m.Members),
+      },
+      {
+        path: 'workspaces/:workspaceId/settings',
+        title: 'Workspace settings | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/workspace-settings/workspace-settings')
+            .then(m => m.WorkspaceSettings),
+      },
+      {
+        path: 'invitations',
+        title: 'My invitations | TaskPulse',
+        loadComponent: () =>
+          import('./features/invitations/my-invitations')
+            .then(m => m.MyInvitations),
+      },
+      {
         path: 'tasks',
         title: 'My Tasks | TaskPulse',
         loadComponent: () =>

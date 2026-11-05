@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { Workspace } from '../../shared/models/workspace.model';
+import { Workspace, WorkspaceRole } from '../../shared/models/workspace.model';
 import { MOCK_MEMBERS, MockMember } from './mock-tasks';
 import { MOCK_WORKSPACES } from './mock-workspaces';
 
@@ -32,6 +32,47 @@ export class WorkspaceService {
     return workspace;
   }
 
+  /** Owners and admins only; archived workspaces are read-only. Callers check permissions. */
+  rename(id: string, name: string): boolean {
+    const workspace = this.getById(id);
+
+    if (!workspace || workspace.isArchived) return false;
+
+    this.replace({ ...workspace, name: name.trim() });
+    return true;
+  }
+
+  /** Owners only. The backend has no way to unarchive. Callers check permissions. */
+  archive(id: string): boolean {
+    const workspace = this.getById(id);
+
+    if (!workspace || workspace.isArchived) return false;
+
+    this.replace({ ...workspace, isArchived: true });
+    return true;
+  }
+
+  /** Called by MemberService after membership changes, to keep the cards in sync. */
+  applyMembership(id: string, patch: { myRole?: WorkspaceRole; memberCount?: number }): void {
+    const workspace = this.getById(id);
+
+    if (workspace) {
+      this.replace({ ...workspace, ...patch });
+    }
+  }
+
+  /** Adds a workspace the user just joined by accepting an invitation. */
+  join(workspace: Workspace): void {
+    if (!this.getById(workspace.id)) {
+      this.workspacesState.update((list) => [...list, workspace]);
+    }
+  }
+
+  /** Removes a workspace from the user's list after they leave it. */
+  leave(id: string): void {
+    this.workspacesState.update((list) => list.filter((workspace) => workspace.id !== id));
+  }
+
   /** People a task can be assigned to. Mock list until a members endpoint exists. */
   memberOptions(): readonly MockMember[] {
     return MOCK_MEMBERS;
@@ -41,5 +82,11 @@ export class WorkspaceService {
   memberName(userId: string | null): string {
     if (userId === null) return 'Unassigned';
     return MOCK_MEMBERS.find((member) => member.id === userId)?.name ?? 'Teammate';
+  }
+
+  private replace(workspace: Workspace): void {
+    this.workspacesState.update((list) =>
+      list.map((item) => (item.id === workspace.id ? workspace : item)),
+    );
   }
 }
