@@ -1,0 +1,193 @@
+@if (workspace(); as ws) {
+  <div class="space-y-6">
+    <header>
+      <a [routerLink]="['/workspaces', ws.id]" class="text-sm text-zinc-500 hover:text-zinc-900">
+        <span aria-hidden="true">←</span> {{ ws.name }}
+      </a>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight">Members</h1>
+        <span class="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-700">
+          You: {{ roleLabels[ws.myRole] }}
+        </span>
+      </div>
+    </header>
+
+    @if (isSampleData) {
+      <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Showing sample data. Changes aren't saved and are lost on reload.
+      </p>
+    }
+
+    @if (ws.isArchived) {
+      <p role="note" class="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-800">
+        This workspace is archived and read-only.
+      </p>
+    }
+
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+    <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+    @if (canInvite()) {
+      <section aria-labelledby="invite-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="invite-heading" class="text-sm font-medium">Invite someone</h2>
+        <form [formGroup]="inviteForm" (ngSubmit)="invite()" novalidate class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div class="flex-1">
+            <label for="inviteEmail" class="mb-1 block text-xs font-medium text-zinc-600">Email address</label>
+            <input
+              id="inviteEmail"
+              type="email"
+              formControlName="inviteEmail"
+              autocomplete="off"
+              placeholder="name@example.com"
+              [attr.aria-invalid]="inviteFieldError() !== null"
+              [attr.aria-describedby]="inviteFieldError() ? 'invite-email-error' : null"
+              class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            />
+            @if (inviteFieldError(); as message) {
+              <p id="invite-email-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+            }
+          </div>
+          <div>
+            <label for="inviteRole" class="mb-1 block text-xs font-medium text-zinc-600">Role</label>
+            <select
+              id="inviteRole"
+              formControlName="inviteRole"
+              class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 sm:mt-5">Send invitation</button>
+        </form>
+      </section>
+    }
+
+    <section aria-labelledby="members-heading" class="rounded-xl border border-zinc-200 bg-white">
+      <h2 id="members-heading" tabindex="-1" class="px-5 py-4 text-sm font-medium outline-hidden">
+        Members ({{ rows().length }})
+      </h2>
+      <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Members">
+        @for (row of rows(); track row.member.userId) {
+          @let pending = confirming();
+          @let isConfirming = pending !== null && pending.userId === row.member.userId && pending.kind !== 'leave';
+          <li class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <p class="break-words text-sm font-medium">
+                {{ row.member.name }}
+                @if (row.isMe) {
+                  <span class="font-normal text-zinc-500">(you)</span>
+                }
+              </p>
+              <p class="mt-0.5 break-all text-xs text-zinc-500">
+                {{ row.member.email || 'No email on file' }} · Joined {{ row.member.joinedAt | date: 'MMM d, y' }}
+              </p>
+            </div>
+
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+              @if (row.canChangeRole) {
+                <label [attr.for]="'role-' + row.member.userId" class="sr-only">Role for {{ row.member.name }}</label>
+                <select
+                  [id]="'role-' + row.member.userId"
+                  [value]="row.member.role"
+                  (change)="onRoleChange(row.member.userId, row.member.name, $event)"
+                  class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              } @else {
+                <span class="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-700">
+                  {{ roleLabels[row.member.role] }}
+                </span>
+              }
+
+              @if (isConfirming && pending) {
+                <div role="group" [attr.aria-label]="'Confirm: ' + (pending.kind === 'remove' ? 'remove ' : 'make owner ') + row.member.name" class="flex flex-wrap items-center gap-2">
+                  <span class="text-xs text-zinc-700">
+                    {{ pending.kind === 'remove' ? 'Remove ' + row.member.name + '?' : 'Make ' + row.member.name + ' the owner? You become an admin.' }}
+                  </span>
+                  <button type="button" (click)="confirm()" class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">Confirm</button>
+                  <button type="button" [id]="'cancel-' + pending.kind + '-' + row.member.userId" (click)="cancelConfirm()" class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Cancel</button>
+                </div>
+              } @else {
+                @if (row.canTransfer) {
+                  <button type="button" [id]="'action-transfer-' + row.member.userId" (click)="askToConfirm('transfer', row.member.userId)" class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">
+                    Make owner<span class="sr-only"> {{ row.member.name }}</span>
+                  </button>
+                }
+                @if (row.canRemove) {
+                  <button type="button" [id]="'action-remove-' + row.member.userId" (click)="askToConfirm('remove', row.member.userId)" class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">
+                    Remove<span class="sr-only"> {{ row.member.name }}</span>
+                  </button>
+                }
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+
+    @if (sentInvitations().length > 0) {
+      <section aria-labelledby="sent-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="sent-heading" class="px-5 py-4 text-sm font-medium">Sent invitations</h2>
+        <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Sent invitations">
+          @for (item of sentInvitations(); track item.invitation.id) {
+            <li class="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div class="min-w-0">
+                <p class="break-all text-sm font-medium">{{ item.invitation.inviteeEmail }}</p>
+                <p class="mt-0.5 text-xs text-zinc-500">
+                  Invited as {{ roleLabels[item.invitation.role] }} by {{ item.invitation.invitedByName }}
+                  · Sent {{ item.invitation.createdAt | date: 'MMM d' }}
+                  @if (item.status === 'pending') {
+                    · Expires {{ item.invitation.expiresAt | date: 'MMM d' }}
+                  }
+                </p>
+              </div>
+              <span class="w-fit shrink-0 rounded-full border px-2 py-0.5 text-xs" [class]="invitationChip[item.status]">
+                {{ invitationLabels[item.status] }}
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (canLeaveWorkspace()) {
+      @let leaving = confirming();
+      <section aria-labelledby="leave-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="leave-heading" class="text-sm font-medium">Leave this workspace</h2>
+        <p class="mt-2 text-sm text-zinc-600">You'll lose access to its tasks.</p>
+        @if (leaving !== null && leaving.kind === 'leave') {
+          <div role="group" aria-label="Confirm: leave workspace" class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-sm text-zinc-800">Leave {{ ws.name }}?</span>
+            <button type="button" (click)="confirm()" class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">Confirm</button>
+            <button type="button" [id]="'cancel-leave-' + leaving.userId" (click)="cancelConfirm()" class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Cancel</button>
+          </div>
+        } @else {
+          <button type="button" [id]="'action-leave-' + currentUserId" (click)="askToConfirm('leave', currentUserId)" class="mt-3 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">
+            Leave workspace
+          </button>
+        }
+      </section>
+    } @else if (mustTransferFirst()) {
+      <section aria-labelledby="leave-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="leave-heading" class="text-sm font-medium">Leave this workspace</h2>
+        <p class="mt-2 text-sm text-zinc-600">
+          You're the only owner. Make another member the owner before you leave.
+        </p>
+      </section>
+    }
+  </div>
+} @else {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">Workspace not found</h1>
+    <p class="mt-1 text-sm text-zinc-500">It may have been removed, or the link is wrong.</p>
+    <a
+      routerLink="/workspaces"
+      class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+    >
+      Back to my workspaces
+    </a>
+  </section>
+}
