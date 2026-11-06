@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   signal,
@@ -38,10 +39,11 @@ import {
   GoogleDocsUrlError,
 } from '../../../shared/utils/google-docs-url';
 import { GoogleDocsEditor } from './google-docs-editor/google-docs-editor';
+import { ArchivedDocumentViewer } from './archived-document-viewer/archived-document-viewer';
 
 @Component({
   selector: 'app-documents',
-  imports: [GoogleDocsEditor, ReactiveFormsModule, RouterLink],
+  imports: [GoogleDocsEditor, ArchivedDocumentViewer, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './documents.css',
   templateUrl: './documents.html',
@@ -99,6 +101,9 @@ export class Documents {
       this.uploadError.set('');
       this.resetFileInput();
       this.statusMessage.set(interrupted ? this.uncertainUploadMessage : '');
+    });
+    effect(() => {
+      if (this.workspace()?.isArchived) this.stopForArchivedWorkspace();
     });
     this.destroyRef.onDestroy(() => this.invalidateUpload());
   }
@@ -169,6 +174,7 @@ export class Documents {
   }
 
   protected async connectGoogleDrive(): Promise<void> {
+    if (!this.workspace() || this.workspace()?.isArchived) return;
     const contextVersion = this.operationVersion;
     this.statusMessage.set('');
     try {
@@ -197,6 +203,7 @@ export class Documents {
   }
 
   protected chooseUploadFile(event: Event): void {
+    if (!this.workspace() || this.workspace()?.isArchived) return;
     const input = event.target as HTMLInputElement;
     const file = input.files?.item(0) ?? null;
     this.uploadFile.set(file);
@@ -225,6 +232,7 @@ export class Documents {
       !this.destroyRef.destroyed &&
       operationId === this.operationVersion &&
       workspaceId === this.workspaceId() &&
+      this.workspace()?.isArchived === false &&
       !controller.signal.aborted;
 
     try {
@@ -266,8 +274,12 @@ export class Documents {
       this.statusMessage.set('');
     } finally {
       if (operationId === this.operationVersion && !this.destroyRef.destroyed) {
-        this.uploading.set(false);
-        this.activeUploadController = null;
+        if (this.workspace()?.isArchived) {
+          this.stopForArchivedWorkspace();
+        } else {
+          this.uploading.set(false);
+          this.activeUploadController = null;
+        }
       }
     }
   }
@@ -321,6 +333,16 @@ export class Documents {
     this.activeUploadController = null;
     this.uploading.set(false);
     return interrupted;
+  }
+
+  private stopForArchivedWorkspace(): void {
+    const interrupted = this.invalidateUpload();
+    this.uploadFile.set(null);
+    this.uploadError.set('');
+    this.resetFileInput();
+    if (interrupted) {
+      this.statusMessage.set(`Workspace archived. ${this.uncertainUploadMessage}`);
+    }
   }
 
   private resetFileInput(): void {
