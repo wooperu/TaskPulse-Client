@@ -137,4 +137,10 @@ export const routes: Routes = [
     path: '**',
     redirectTo: 'dashboard',
   },
+  {
+    path: 'admin',
+    loadChildren: () =>
+      import('./features/admin/admin.routes')
+        .then(m => m.ADMIN_ROUTES),
+  },
 ];

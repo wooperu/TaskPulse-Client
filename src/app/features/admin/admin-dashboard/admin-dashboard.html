@@ -1,0 +1,42 @@
+<div class="space-y-8">
+    <header>
+        <h1 class="text-2xl font-semibold tracking-tight">Admin Dashboard</h1>
+        <p class="mt-1 text-sm text-zinc-500">System-wide overview across all teams.</p>
+    </header>
+
+    @if (isSampleData) {
+        <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Showing sample data. 
+        </p>
+    }
+    <dl class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        @for (card of cards; track card.label) {
+            <div class="rounded-xl border border-zinc-200 bg-white p-4">
+                <dt class="text-xs font-medium text-zinc-500">{{ card.label }}</dt>
+                <dd class="mt-2 text-3xl font-semibold tracking-tight" [class.text-red-600]="card.alert">
+                    {{ card.value }}
+                </dd>
+            </div>
+        }
+    </dl>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section aria-labelledby="rolse-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+            <h2>Tasks by status</h2>
+            <ul class="mt-4 space-y-4">
+                @for (row of statusRow(); track row.label) {
+                    <li>
+                        <div class="flex items-baseline justify-between gap-4 text-sm">
+                            <span>{{ row.label }}</span>
+                            <span class="text-zinc-500">{{ row.count }} · {{ row.percent }}%</span>
+                        </div>
+                        <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100" role="progressbar"
+                            [attr.aria-label]="row.label" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="row.percent">
+                            <div class="h-full rounded-full bg-zinc-900" [style.width.%]="row.percent"></div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+    </div>
+</div>
