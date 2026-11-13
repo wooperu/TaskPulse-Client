@@ -1,0 +1,71 @@
+<div class="min-h-dvh bg-slate-50 text-slate-900">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+      <a routerLink="/" class="inline-flex items-center gap-3" aria-label="TaskPulse home">
+        <span class="flex size-9 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">T</span>
+        <span class="text-xl font-bold tracking-tight">TaskPulse</span>
+      </a>
+
+      <nav aria-label="Account" class="flex items-center gap-2 sm:gap-3">
+        <a
+          routerLink="/login"
+          class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:text-indigo-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+          Sign in
+        </a>
+        <a
+          routerLink="/register"
+          class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        >
+          Create account
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
+      <p class="mb-3 text-sm font-semibold text-indigo-600">TASK MANAGEMENT FOR TEAMS</p>
+      <h1 class="max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl">
+        Keep your team's work organized in one place.
+      </h1>
+      <p class="mt-5 max-w-xl text-base leading-7 text-slate-600">
+        Create workspaces, assign tasks, track deadlines and keep everyone in the loop, without the clutter.
+      </p>
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        <a
+          routerLink="/register"
+          class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        >
+          Create your account
+        </a>
+        <a
+          routerLink="/login"
+          class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-800 transition hover:bg-slate-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        >
+          Sign in
+        </a>
+      </div>
+    </section>
+
+    <section aria-labelledby="features-heading" class="border-t border-slate-200 bg-white">
+      <div class="mx-auto max-w-5xl px-4 py-14 sm:px-6">
+        <h2 id="features-heading" class="text-2xl font-bold tracking-tight">What you can do</h2>
+        <ul class="mt-8 grid gap-4 sm:grid-cols-2">
+          @for (feature of features; track feature.title) {
+            <li class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h3 class="text-base font-semibold">{{ feature.title }}</h3>
+              <p class="mt-2 text-sm leading-6 text-slate-600">{{ feature.description }}</p>
+            </li>
+          }
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-200 bg-slate-50">
+    <div class="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-6 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <p>© {{ year }} TaskPulse</p>
+    </div>
+  </footer>
+</div>

@@ -34,6 +34,13 @@ export class TaskService {
     return this.tasksState().filter((task) => task.workspaceId === workspaceId);
   }
 
+  /** Tasks assigned to the signed-in user or created by them, across all workspaces. */
+  myTasks(): readonly Task[] {
+    const me = this.currentUserId;
+
+    return this.tasksState().filter((task) => task.assigneeId === me || task.createdById === me);
+  }
+
   getById(taskId: string): Task | undefined {
     return this.tasksState().find((task) => task.id === taskId);
   }
