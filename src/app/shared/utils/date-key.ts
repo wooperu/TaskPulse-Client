@@ -12,3 +12,9 @@ export function dateKeyFromToday(offsetDays: number): string {
   date.setDate(date.getDate() + offsetDays);
   return toLocalDateKey(date);
 }
+
+/** Adds days to a local 'YYYY-MM-DD' key (negative = earlier) and returns the new key. */
+export function addDaysToDateKey(key: string, days: number): string {
+  const [year, month, day] = key.split('-').map(Number);
+  return toLocalDateKey(new Date(year, month - 1, day + days));
+}

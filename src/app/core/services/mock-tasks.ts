@@ -36,6 +36,8 @@ interface MockTaskInput {
   priority: TaskPriority;
   dueInDays: number | null;
   assigneeId: string | null;
+  /** Defaults to the signed-in user. */
+  createdById?: string;
   description?: string;
   linkedDocument?: LinkedDocument;
 }
@@ -52,7 +54,7 @@ function mock(input: MockTaskInput): Task {
     assigneeId: input.assigneeId,
     dueDate: input.dueInDays === null ? null : dateKeyFromToday(input.dueInDays),
     linkedDocument: input.linkedDocument ?? null,
-    createdById: MOCK_CURRENT_USER_ID,
+    createdById: input.createdById ?? MOCK_CURRENT_USER_ID,
     createdAt: now,
     completedAt: input.status === 'completed' ? now : null,
   };
@@ -61,17 +63,17 @@ function mock(input: MockTaskInput): Task {
 export const MOCK_TASKS: readonly Task[] = [
   // Product Team
   mock({ id: 'mock-1', workspaceId: 'ws-product', title: 'Review sprint board', status: 'ongoing', priority: 'high', dueInDays: -2, assigneeId: 'user-me', description: 'Go through every open card and move anything stale to the backlog.' }),
-  mock({ id: 'mock-2', workspaceId: 'ws-product', title: 'Reply to design feedback', status: 'pending', priority: 'medium', dueInDays: -1, assigneeId: 'user-me' }),
-  mock({ id: 'mock-3', workspaceId: 'ws-product', title: 'Draft release notes', status: 'ongoing', priority: 'medium', dueInDays: 0, assigneeId: 'user-ana', description: 'Summarise what shipped this sprint for the changelog.', linkedDocument: { url: 'https://docs.google.com/document/d/1sample-release-notes/edit', label: 'Release notes draft' } }),
-  mock({ id: 'mock-9', workspaceId: 'ws-product', title: 'Prepare demo script', status: 'pending', priority: 'urgent', dueInDays: 1, assigneeId: 'user-ana' }),
-  mock({ id: 'mock-4', workspaceId: 'ws-product', title: 'Plan next week', status: 'pending', priority: 'low', dueInDays: 3, assigneeId: 'user-me' }),
-  mock({ id: 'mock-5', workspaceId: 'ws-product', title: 'Update onboarding checklist', status: 'pending', priority: 'low', dueInDays: 7, assigneeId: 'user-ben' }),
+  mock({ id: 'mock-2', workspaceId: 'ws-product', title: 'Reply to design feedback', status: 'pending', priority: 'medium', dueInDays: -1, assigneeId: 'user-me', createdById: 'user-ana' }),
+  mock({ id: 'mock-3', workspaceId: 'ws-product', title: 'Draft release notes', status: 'ongoing', priority: 'medium', dueInDays: 0, assigneeId: 'user-ana', createdById: 'user-ana', description: 'Summarise what shipped this sprint for the changelog.', linkedDocument: { url: 'https://docs.google.com/document/d/1sample-release-notes/edit', label: 'Release notes draft' } }),
+  mock({ id: 'mock-9', workspaceId: 'ws-product', title: 'Prepare demo script', status: 'pending', priority: 'urgent', dueInDays: 1, assigneeId: 'user-ana', createdById: 'user-ana' }),
+  mock({ id: 'mock-4', workspaceId: 'ws-product', title: 'Plan next week', status: 'pending', priority: 'low', dueInDays: 3, assigneeId: 'user-me', createdById: 'user-ana' }),
+  mock({ id: 'mock-5', workspaceId: 'ws-product', title: 'Update onboarding checklist', status: 'pending', priority: 'low', dueInDays: 7, assigneeId: 'user-ben', createdById: 'user-ben' }),
   mock({ id: 'mock-6', workspaceId: 'ws-product', title: 'Read API proposal', status: 'pending', priority: 'high', dueInDays: null, assigneeId: null, linkedDocument: { url: 'https://github.com/example/taskpulse-api/issues/12', label: 'API proposal discussion' } }),
   mock({ id: 'mock-7', workspaceId: 'ws-product', title: 'Set up weekly sync', status: 'completed', priority: 'low', dueInDays: -5, assigneeId: 'user-me' }),
   mock({ id: 'mock-8', workspaceId: 'ws-product', title: 'Fix login typo', status: 'completed', priority: 'medium', dueInDays: -3, assigneeId: 'user-ben' }),
   // Design Sprint
   mock({ id: 'mock-10', workspaceId: 'ws-design', title: 'Sketch settings page', status: 'ongoing', priority: 'medium', dueInDays: 2, assigneeId: 'user-me' }),
-  mock({ id: 'mock-11', workspaceId: 'ws-design', title: 'Collect user quotes', status: 'pending', priority: 'low', dueInDays: 5, assigneeId: 'user-ben' }),
+  mock({ id: 'mock-11', workspaceId: 'ws-design', title: 'Collect user quotes', status: 'pending', priority: 'low', dueInDays: 5, assigneeId: 'user-ben', createdById: 'user-ben' }),
   mock({ id: 'mock-12', workspaceId: 'ws-design', title: 'Review icon set', status: 'completed', priority: 'low', dueInDays: -4, assigneeId: 'user-me' }),
   // Spring Launch (archived)
   mock({ id: 'mock-13', workspaceId: 'ws-launch', title: 'Publish changelog', status: 'completed', priority: 'medium', dueInDays: -20, assigneeId: 'user-me' }),
