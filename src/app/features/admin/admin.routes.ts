@@ -7,10 +7,10 @@ export const ADMIN_ROUTES: Routes = [
             import('./admin-shell/admin-shell').then((m) => m.AdminShell),
         children: [
             {
-                path: ''
+                path: '',
                 title: 'Admin dashbord | TaskPulse',
                 loadComponent: () => 
-                    import:('./admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
+                    import('./admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
             },
         ],
     },

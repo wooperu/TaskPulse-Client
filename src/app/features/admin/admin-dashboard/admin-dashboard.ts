@@ -1,10 +1,10 @@
-import { DataPipe } from '@andular/common';
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AdminService } from '../../../core/services/admin.service';
 
 @Component({
     selector: 'app-admin-dashboard',
-    imports: [DataPipe],
+    imports: [DatePipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './admin-dashboard.html',
 })
@@ -23,19 +23,19 @@ export class AdminDashboard {
         { label: 'Overdue tasks', value: this.stats.overdueTasks, alert: this.stats.overdueTasks > 0  },
     ];
 
-    pretected readonly roleRows = computed(() =>
+    protected readonly roleRows = computed(() =>
         this.bars([
             ['Admins', this.stats.usersByRole.admin],
             ['Managers', this.stats.usersByRole.manager],
-            ['Employees', this.stats.userByRole.employee],
+            ['Employees', this.stats.usersByRole.employee],
         ]),
     );
 
     protected readonly statusRows = computed(() =>
         this.bars([
             ['Pending', this.stats.tasksByStatus.pending],
-            ['Ongoin', this.stats.tasksByStatus.ongoing],
-            ['Completed', this.stats.taskByStatus.completed],
+            ['Ongoing', this.stats.tasksByStatus.ongoing],
+            ['Completed', this.stats.tasksByStatus.completed],
         ]),
     );
 

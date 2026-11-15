@@ -5,7 +5,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     selector: 'app-admin-shell',
     imports: [RouterLink, RouterLinkActive, RouterOutlet],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    templateURL: './admin-shell.html',
+    templateUrl: './admin-shell.html',
 })
 export class AdminShell {
     protected readonly tabs = [{ label: 'Dashboard', path: '/admin' }];
