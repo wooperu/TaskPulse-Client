@@ -1,11 +1,13 @@
-
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'dashboard',
+    title: 'TaskPulse | Keep your team\'s work organized',
+    loadComponent: () =>
+      import('./features/landing/landing')
+        .then(m => m.Landing),
   },
   {
     path: 'login',
@@ -54,6 +56,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/workspaces/my-workspaces/my-workspaces')
             .then(m => m.MyWorkspaces),
+      },
+      {
+        path: 'workspaces/:workspaceId/documents',
+        title: 'Documents | TaskPulse',
+        loadComponent: () =>
+          import('./features/workspaces/documents/documents')
+            .then(m => m.Documents),
       },
       {
         path: 'workspaces/:workspaceId',
@@ -110,6 +119,13 @@ export const routes: Routes = [
             .then(m => m.MyInvitations),
       },
       {
+        path: 'notifications',
+        title: 'Notifications | TaskPulse',
+        loadComponent: () =>
+          import('./features/notifications/notifications')
+            .then(m => m.Notifications),
+      },
+      {
         path: 'tasks',
         title: 'My Tasks | TaskPulse',
         loadComponent: () =>
@@ -140,7 +156,17 @@ export const routes: Routes = [
         .then(m => m.VerifyEmail),
   },
   {
+    path: 'forbidden',
+    title: 'No permission | TaskPulse',
+    loadComponent: () =>
+      import('./features/errors/forbidden')
+        .then(m => m.Forbidden),
+  },
+  {
     path: '**',
-    redirectTo: 'dashboard',
+    title: 'Page not found | TaskPulse',
+    loadComponent: () =>
+      import('./features/errors/not-found')
+        .then(m => m.NotFound),
   },
 ];

@@ -1,0 +1,94 @@
+<section
+  aria-labelledby="archived-document-heading"
+  class="overflow-hidden rounded-xl border border-zinc-200 bg-white"
+>
+  <header class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 p-5">
+    <div class="min-w-0">
+      <p class="text-xs font-medium uppercase tracking-wider text-zinc-500">
+        Archived — Read-only preview
+      </p>
+      <h2 id="archived-document-heading" class="mt-2 break-words text-base font-semibold">
+        {{ document().title }}
+      </h2>
+    </div>
+    @if (frameVisible()) {
+      <button
+        type="button"
+        (click)="useDetails()"
+        class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+      >
+        Use document details
+      </button>
+    } @else if (request()) {
+      <button
+        type="button"
+        (click)="retry()"
+        class="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+      >
+        Retry preview
+      </button>
+    }
+  </header>
+  <div class="space-y-2 p-5 text-sm leading-6 text-zinc-600">
+    <p role="status">
+      @switch (state()) {
+        @case ('loading') {
+          Loading the Google document preview…
+        }
+        @case ('frame-loaded') {
+          If the document is blank, requests sign-in, or cannot be viewed, use document details.
+        }
+        @case ('failed') {
+          The preview could not be loaded. Document details are shown below.
+        }
+        @case ('timed-out') {
+          The preview did not respond in time. Document details are shown below.
+        }
+        @case ('details') {
+          The preview is closed. Document details are shown below.
+        }
+        @case ('unsupported') {
+          A content preview is unavailable for this document's saved file type or identifier.
+          Document details are shown below.
+        }
+      }
+    </p>
+    @if (frameVisible()) {
+      <p class="text-xs text-zinc-500">
+        Sign in to a Google account with access in this Chrome profile first. Google controls this
+        preview; if editing controls appear, select “Use document details” and report the problem.
+      </p>
+    }
+  </div>
+  @if (frameVisible()) {
+    @if (request(); as current) {
+      <!-- A new request gets a new iframe, preventing old load/error events affecting another file. -->
+      @for (attempt of [current]; track attempt) {
+        <iframe
+          [src]="attempt.url"
+          [title]="'Read ' + document().title + ' in Google preview'"
+          (load)="frameLoaded(attempt)"
+          (error)="frameFailed(attempt)"
+          sandbox="allow-scripts allow-same-origin"
+          referrerpolicy="strict-origin-when-cross-origin"
+          class="block h-[72vh] min-h-[420px] w-full border-0 bg-white"
+        ></iframe>
+      }
+    }
+  }
+  <div class="space-y-2 border-t border-zinc-200 p-5 text-sm leading-6 text-zinc-600">
+    <h3 class="font-medium text-zinc-900">Document details</h3>
+    <p>
+      {{
+        document().sourceType === 'google-drive-upload'
+          ? 'Uploaded Microsoft Word DOCX'
+          : 'Registered Google Docs link'
+      }}
+    </p>
+    <p class="text-xs text-zinc-500">
+      Archiving in TaskPulse does not change Google Drive permissions. Existing Google editors may
+      still edit the original file outside TaskPulse. This preview does not change sharing or
+      publish the file.
+    </p>
+  </div>
+</section>

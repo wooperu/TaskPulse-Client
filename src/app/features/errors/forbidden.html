@@ -1,0 +1,18 @@
+<app-status-page
+  code="403"
+  heading="You don't have permission"
+  message="Your account can't open this page. If you think it should, ask a workspace owner or admin."
+>
+  <a
+    routerLink="/dashboard"
+    class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+  >
+    Go to dashboard
+  </a>
+  <a
+    routerLink="/workspaces"
+    class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+  >
+    My workspaces
+  </a>
+</app-status-page>

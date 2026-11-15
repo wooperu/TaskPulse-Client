@@ -1,0 +1,336 @@
+@if (workspace(); as ws) {
+  <div class="space-y-6">
+    <header>
+      <a [routerLink]="['/workspaces', ws.id]" class="text-sm text-zinc-500 hover:text-zinc-900">
+        <span aria-hidden="true">&larr;</span> {{ ws.name }} tasks
+      </a>
+      <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Documents</h1>
+          <p class="mt-1 text-sm text-zinc-500">
+            @if (ws.isArchived) {
+              Browse the saved document library and read available document previews.
+            } @else {
+              Upload DOCX files or register Google Docs links, then edit them inside this workspace.
+            }
+          </p>
+        </div>
+        <a
+          [routerLink]="['/workspaces', ws.id]"
+          class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          View tasks
+        </a>
+      </div>
+    </header>
+
+    <p
+      role="note"
+      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900"
+    >
+      Prototype storage: document titles and Google document IDs are saved only in this browser for
+      this workspace. They are not synchronized, shared, or access-controlled by TaskPulse.
+    </p>
+
+    @if (!storageAvailable()) {
+      <p
+        role="alert"
+        class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+      >
+        Browser storage is unavailable. Changes may disappear when you leave or reload this page.
+      </p>
+    }
+
+    @if (ws.isArchived) {
+      <p
+        role="note"
+        class="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-800"
+      >
+        <strong>Archived &mdash; Read-only.</strong> Select a document to read its available Google
+        preview. Editing, adding, uploading, and removing documents are unavailable in this
+        workspace.
+      </p>
+    }
+
+    @if (!ws.isArchived) {
+      <section
+        aria-labelledby="google-drive-heading"
+        class="rounded-xl border border-zinc-200 bg-white p-5"
+      >
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="google-drive-heading" class="text-sm font-medium">Google Drive connection</h2>
+            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              Used only to upload files. This is separate from the Google session selected in the
+              embedded editor.
+            </p>
+          </div>
+
+          <div class="flex shrink-0 items-center gap-2">
+            @if (driveConnected()) {
+              <span
+                class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800"
+                >Connected</span
+              >
+              <button
+                type="button"
+                (click)="disconnectGoogleDrive()"
+                class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Disconnect
+              </button>
+            } @else {
+              <button
+                type="button"
+                (click)="connectGoogleDrive()"
+                [disabled]="!driveConfigured() || driveStatus() === 'connecting' || ws.isArchived"
+                class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {{ driveStatus() === 'connecting' ? 'Connecting...' : 'Connect Google Drive' }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (!driveConfigured()) {
+          <p role="note" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Google Drive is not configured. Add a Google OAuth Web Client ID to
+            <code>public/taskpulse-config.js</code> using the provided example file.
+          </p>
+        } @else if (driveStatus() === 'expired') {
+          <p role="alert" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Google Drive authorization expired. Connect again before uploading.
+          </p>
+        } @else if (driveError()) {
+          <p role="alert" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
+            {{ driveError() }}
+          </p>
+        }
+      </section>
+    }
+
+    <div
+      [class]="
+        ws.isArchived
+          ? 'grid gap-5'
+          : 'grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]'
+      "
+    >
+      <section
+        aria-labelledby="document-library-heading"
+        class="rounded-xl border border-zinc-200 bg-white p-5"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 id="document-library-heading" class="text-sm font-medium">Document library</h2>
+            <p class="mt-1 text-xs text-zinc-500">
+              {{ documents().length }}
+              {{ storageAvailable() ? 'saved on this device' : 'available for this visit' }}
+            </p>
+          </div>
+        </div>
+
+        @if (documents().length === 0) {
+          <div class="mt-4 rounded-lg border border-dashed border-zinc-300 px-5 py-10 text-center">
+            <h3 class="text-sm font-medium">No Google documents registered</h3>
+            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              @if (ws.isArchived) {
+                No documents were saved to this library. Archived workspaces cannot add documents.
+              } @else {
+                Upload a DOCX file or add a document link to start editing.
+              }
+            </p>
+          </div>
+        } @else {
+          <ul class="mt-4 divide-y divide-zinc-100" aria-label="Registered Google documents">
+            @for (document of documents(); track document.id) {
+              <li class="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium">{{ document.title }}</p>
+                  <p class="mt-1 truncate font-mono text-[11px] text-zinc-400">
+                    Google document {{ document.googleDocumentId }}
+                  </p>
+                  <p class="mt-1 text-[11px] font-medium text-zinc-500">
+                    {{
+                      document.sourceType === 'google-drive-upload'
+                        ? 'Uploaded DOCX'
+                        : 'Google Docs link'
+                    }}
+                  </p>
+                </div>
+                <div class="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    (click)="openDocument(document)"
+                    class="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800"
+                  >
+                    {{
+                      ws.isArchived
+                        ? 'View document'
+                        : selectedDocumentId() === document.id
+                          ? 'Open'
+                          : 'Edit'
+                    }}
+                  </button>
+                  @if (!ws.isArchived) {
+                    <button
+                      type="button"
+                      (click)="removeDocument(document)"
+                      class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                      [attr.aria-label]="'Remove ' + document.title + ' from this device'"
+                    >
+                      Remove
+                    </button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      @if (!ws.isArchived) {
+        <div class="space-y-5">
+          <section
+            aria-labelledby="upload-document-heading"
+            class="rounded-xl border border-zinc-200 bg-white p-5"
+          >
+            <h2 id="upload-document-heading" class="text-sm font-medium">Upload DOCX</h2>
+            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              Upload a Microsoft Word document to the connected account. The original DOCX format is
+              preserved.
+            </p>
+
+            <div class="mt-4 space-y-4">
+              <div>
+                <label for="docxUpload" class="mb-1 block text-xs font-medium text-zinc-600"
+                  >DOCX file</label
+                >
+                <input
+                  id="docxUpload"
+                  type="file"
+                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  (change)="chooseUploadFile($event)"
+                  [disabled]="uploading() || ws.isArchived"
+                  class="block w-full text-xs text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 disabled:opacity-50"
+                />
+                <p class="mt-2 text-xs leading-5 text-zinc-500">DOCX only, maximum 10 MB.</p>
+                @if (uploadError()) {
+                  <p role="alert" class="mt-2 text-sm text-red-600">{{ uploadError() }}</p>
+                }
+              </div>
+
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="uploadDocx()"
+                  [disabled]="!driveConnected() || !uploadFile() || uploading() || ws.isArchived"
+                  class="flex-1 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {{ uploading() ? 'Uploading to Drive...' : 'Upload DOCX' }}
+                </button>
+                @if (uploading()) {
+                  <button
+                    type="button"
+                    (click)="cancelUpload()"
+                    class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  >
+                    Cancel
+                  </button>
+                }
+              </div>
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="add-document-heading"
+            class="rounded-xl border border-zinc-200 bg-white p-5"
+          >
+            <h2 id="add-document-heading" class="text-sm font-medium">Add a Google document</h2>
+            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              Use a Google Docs link for a document you already have permission to open.
+            </p>
+
+            <form [formGroup]="form" (ngSubmit)="addDocument()" novalidate class="mt-4 space-y-4">
+              <div>
+                <label for="documentTitle" class="mb-1 block text-xs font-medium text-zinc-600"
+                  >Document title</label
+                >
+                <input
+                  id="documentTitle"
+                  type="text"
+                  formControlName="title"
+                  maxlength="150"
+                  autocomplete="off"
+                  placeholder="For example, Sprint notes"
+                  [attr.aria-invalid]="titleError() !== null"
+                  [attr.aria-describedby]="titleError() ? 'document-title-error' : null"
+                  class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                />
+                @if (titleError(); as message) {
+                  <p id="document-title-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+                }
+              </div>
+
+              <div>
+                <label for="googleDocumentUrl" class="mb-1 block text-xs font-medium text-zinc-600"
+                  >Google Docs URL</label
+                >
+                <input
+                  id="googleDocumentUrl"
+                  type="url"
+                  formControlName="url"
+                  inputmode="url"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="https://docs.google.com/document/d/.../edit"
+                  [attr.aria-invalid]="urlError() !== null"
+                  [attr.aria-describedby]="
+                    urlError() ? 'google-document-url-error' : 'google-document-url-help'
+                  "
+                  class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                />
+                <p id="google-document-url-help" class="mt-2 text-xs leading-5 text-zinc-500">
+                  HTTPS links from the exact docs.google.com host only.
+                </p>
+                @if (urlError(); as message) {
+                  <p id="google-document-url-error" class="mt-2 text-sm text-red-600">
+                    {{ message }}
+                  </p>
+                }
+              </div>
+
+              <button
+                type="submit"
+                [disabled]="ws.isArchived"
+                class="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Add document
+              </button>
+            </form>
+          </section>
+        </div>
+      }
+    </div>
+
+    <p role="status" class="min-h-5 text-sm text-zinc-600">{{ statusMessage() }}</p>
+
+    @if (selectedDocument(); as selected) {
+      @if (ws.isArchived) {
+        <app-archived-document-viewer [document]="selected" />
+      } @else {
+        <app-google-docs-editor [document]="selected" />
+      }
+    }
+  </div>
+} @else {
+  <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+    <h1 class="text-base font-medium">Workspace not found</h1>
+    <p class="mt-1 text-sm text-zinc-500">It may have been removed, or the link is wrong.</p>
+    <a
+      routerLink="/workspaces"
+      class="mt-5 inline-flex rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+      >Back to my workspaces</a
+    >
+  </section>
+}

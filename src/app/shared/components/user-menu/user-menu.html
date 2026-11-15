@@ -1,0 +1,66 @@
+<button
+  id="user-menu-button"
+  type="button"
+  (click)="toggle()"
+  [attr.aria-expanded]="isOpen()"
+  [attr.aria-controls]="isOpen() ? 'user-menu-panel' : null"
+  [attr.aria-label]="'Account menu for ' + fullName()"
+  class="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+>
+  <span aria-hidden="true">{{ initials() }}</span>
+</button>
+
+@if (isOpen()) {
+  <div
+    id="user-menu-panel"
+    role="region"
+    aria-label="Account menu"
+    class="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg"
+  >
+    <div class="border-b border-zinc-100 px-4 py-3">
+      <p class="break-words text-sm font-semibold">{{ fullName() }}</p>
+      <p class="break-all text-xs text-zinc-600">{{ user().email }}</p>
+      <p class="mt-1 text-xs text-zinc-500">{{ roleLabel() }}</p>
+    </div>
+
+    <ul class="py-1">
+      <li>
+        <a
+          routerLink="/account"
+          (click)="close()"
+          class="block px-4 py-2 text-sm text-zinc-800 hover:bg-zinc-50 focus:outline-hidden focus-visible:bg-zinc-100"
+        >
+          Account settings
+        </a>
+      </li>
+      <li>
+        <a
+          routerLink="/invitations"
+          (click)="close()"
+          class="block px-4 py-2 text-sm text-zinc-800 hover:bg-zinc-50 focus:outline-hidden focus-visible:bg-zinc-100"
+        >
+          My invitations
+        </a>
+      </li>
+      <li>
+        <button
+          type="button"
+          (click)="signOut()"
+          class="block w-full px-4 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50 focus:outline-hidden focus-visible:bg-zinc-100"
+        >
+          Sign out
+        </button>
+      </li>
+    </ul>
+
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+    <p
+      role="status"
+      class="text-xs text-zinc-600"
+      [class.border-t]="statusMessage()"
+      [class.border-zinc-100]="statusMessage()"
+      [class.px-4]="statusMessage()"
+      [class.py-2]="statusMessage()"
+    >{{ statusMessage() }}</p>
+  </div>
+}

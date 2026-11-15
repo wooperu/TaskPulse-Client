@@ -1,124 +1,154 @@
 <div class="space-y-8">
   <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">Welcome back, {{ firstName }}</h1>
       <p class="mt-1 text-sm text-zinc-500">{{ now | date: 'fullDate' }}</p>
     </div>
 
-    <!-- TODO (Phase 2): replace with a real "New task" action. -->
     <a
       routerLink="/tasks"
       class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
     >
-      Go to tasks
+      My tasks
     </a>
   </header>
 
   @if (isSampleData) {
-    <p
-      role="note"
-      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-    >
+    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
       Showing sample data. Tasks are not connected to your account yet.
     </p>
   }
 
-  @if (stats().total === 0) {
-    <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-      <h2 class="text-base font-medium">No tasks yet</h2>
-      <p class="mt-1 text-sm text-zinc-500">
-        Create your first task to see your progress here.
-      </p>
-      <a
-        routerLink="/tasks"
-        class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
-      >
-        Go to tasks
-      </a>
-    </section>
-  } @else {
-    <dl class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      @for (card of cards(); track card.label) {
-        <div class="rounded-xl border border-zinc-200 bg-white p-4">
-          <dt class="text-xs font-medium text-zinc-500">{{ card.label }}</dt>
-          <dd
-            class="mt-2 text-3xl font-semibold tracking-tight"
-            [class.text-red-600]="card.alert"
-          >
-            {{ card.value }}
-          </dd>
-        </div>
-      }
-    </dl>
-
-    <section
-      aria-labelledby="progress-heading"
-      class="rounded-xl border border-zinc-200 bg-white p-5"
-    >
-      <div class="flex items-baseline justify-between gap-4">
-        <h2 id="progress-heading" class="text-sm font-medium">Progress</h2>
-        <p class="text-sm text-zinc-500">
-          {{ stats().completed }} of {{ stats().total }} completed
-        </p>
+  <dl class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    @for (card of cards(); track card.label) {
+      <div class="rounded-xl border border-zinc-200 bg-white p-4">
+        <dt class="text-xs font-medium text-zinc-500">{{ card.label }}</dt>
+        <dd class="mt-2 text-3xl font-semibold tracking-tight" [class.text-red-700]="card.alert">{{ card.value }}</dd>
       </div>
-      <div
-        class="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100"
-        role="progressbar"
-        aria-labelledby="progress-heading"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        [attr.aria-valuenow]="stats().completionPercent"
-      >
-        <div
-          class="h-full rounded-full bg-zinc-900"
-          [style.width.%]="stats().completionPercent"
-        ></div>
-      </div>
-    </section>
+    }
+  </dl>
 
-    <section
-      aria-labelledby="upcoming-heading"
-      class="rounded-xl border border-zinc-200 bg-white"
-    >
-      <h2 id="upcoming-heading" class="px-5 py-4 text-sm font-medium">Up next</h2>
-
-      @if (upcoming().length === 0) {
-        <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
-          Nothing pending. You're all caught up.
-        </p>
-      } @else {
-        <ul class="divide-y divide-zinc-100 border-t border-zinc-100">
-          @for (item of upcoming(); track item.task.id) {
-            <li class="flex items-center justify-between gap-4 px-5 py-3">
-              <div class="min-w-0">
-                <p class="truncate text-sm">{{ item.task.title }}</p>
-                <p
-                  class="mt-0.5 text-xs"
-                  [class.text-red-600]="item.overdue"
-                  [class.text-zinc-500]="!item.overdue"
-                >
-                  @if (item.task.dueDate) {
-                    {{ item.overdue ? 'Overdue · ' : 'Due ' }}{{ item.task.dueDate | date: 'MMM d' }}
-                  } @else {
-                    No due date
-                  }
-                </p>
-              </div>
-
-              <span
-                class="shrink-0 rounded-full border px-2 py-0.5 text-xs capitalize"
-                [class.border-amber-200]="item.task.priority === 'high'"
-                [class.bg-amber-50]="item.task.priority === 'high'"
-                [class.text-amber-800]="item.task.priority === 'high'"
-                [class.border-zinc-200]="item.task.priority !== 'high'"
-                [class.text-zinc-600]="item.task.priority !== 'high'"
-              >
-                {{ item.task.priority }}
-              </span>
-            </li>
+  <div class="grid gap-6 lg:grid-cols-3">
+    <div class="space-y-6 lg:col-span-2">
+      <section aria-labelledby="overdue-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="overdue-heading" class="px-5 py-4 text-sm font-medium">Overdue</h2>
+        @if (!hasTasks()) {
+          <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+            No tasks yet. Tasks assigned to you or created by you will show up here.
+          </p>
+        } @else if (overdueRows().length === 0) {
+          <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Nothing is overdue.</p>
+        } @else {
+          <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Overdue tasks">
+            @for (row of overdueRows(); track row.task.id) {
+              <li class="flex items-center justify-between gap-4 border-l-4 border-l-red-500 bg-red-50 px-5 py-3">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium">
+                    <a [routerLink]="['/workspaces', row.task.workspaceId, 'tasks', row.task.id]" class="hover:underline">{{ row.task.title }}</a>
+                  </p>
+                  <p class="mt-0.5 text-xs text-zinc-600">
+                    {{ row.workspaceName }} · <span class="font-medium text-red-700">Overdue since {{ row.task.dueDate | date: 'MMM d' }}</span>
+                  </p>
+                </div>
+                <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs" [class]="priorityChip[row.task.priority]">{{ priorityLabels[row.task.priority] }}</span>
+              </li>
+            }
+          </ul>
+          @if (overdueMore() > 0) {
+            <p class="border-t border-zinc-100 px-5 py-3 text-xs text-zinc-600">
+              and {{ overdueMore() }} more. <a routerLink="/tasks" class="font-medium text-indigo-700 underline hover:text-indigo-900">See all in My tasks</a>
+            </p>
           }
-        </ul>
-      }
-    </section>
-  }
+        }
+      </section>
+
+      <section aria-labelledby="due-soon-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="due-soon-heading" class="px-5 py-4 text-sm font-medium">Due in the next {{ dueSoonDays }} days</h2>
+        @if (!hasTasks()) {
+          <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Nothing to show yet.</p>
+        } @else if (dueSoonRows().length === 0) {
+          <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Nothing is due this week.</p>
+        } @else {
+          <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Tasks due soon">
+            @for (row of dueSoonRows(); track row.task.id) {
+              <li class="flex items-center justify-between gap-4 px-5 py-3">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium">
+                    <a [routerLink]="['/workspaces', row.task.workspaceId, 'tasks', row.task.id]" class="hover:underline">{{ row.task.title }}</a>
+                  </p>
+                  <p class="mt-0.5 text-xs text-zinc-600">{{ row.workspaceName }} · Due {{ row.task.dueDate | date: 'MMM d' }}</p>
+                </div>
+                <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs" [class]="priorityChip[row.task.priority]">{{ priorityLabels[row.task.priority] }}</span>
+              </li>
+            }
+          </ul>
+          @if (dueSoonMore() > 0) {
+            <p class="border-t border-zinc-100 px-5 py-3 text-xs text-zinc-600">
+              and {{ dueSoonMore() }} more. <a routerLink="/tasks" class="font-medium text-indigo-700 underline hover:text-indigo-900">See all in My tasks</a>
+            </p>
+          }
+        }
+      </section>
+    </div>
+
+    <div class="space-y-6">
+      <section aria-labelledby="invitations-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="invitations-heading" class="px-5 py-4 text-sm font-medium">Pending invitations ({{ invitations().length }})</h2>
+        @if (invitations().length === 0) {
+          <p class="border-t border-zinc-100 px-5 py-6 text-center text-sm text-zinc-500">No pending invitations.</p>
+        } @else {
+          <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Pending invitations">
+            @for (invitation of invitations(); track invitation.id) {
+              <li class="px-5 py-3">
+                <p class="break-words text-sm font-medium">{{ invitation.workspaceName }}</p>
+                <p class="mt-0.5 text-xs text-zinc-600">Invited by {{ invitation.invitedByName }} as {{ roleLabels[invitation.role] }}</p>
+              </li>
+            }
+          </ul>
+          <p class="border-t border-zinc-100 px-5 py-3 text-xs">
+            <a routerLink="/invitations" class="font-medium text-indigo-700 underline hover:text-indigo-900">Review invitations</a>
+          </p>
+        }
+      </section>
+
+      <section aria-labelledby="notifications-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="notifications-heading" class="px-5 py-4 text-sm font-medium">
+          Recent notifications
+          @if (unreadCount() > 0) {
+            <span class="ml-1 font-normal text-zinc-500">({{ unreadCount() }} unread)</span>
+          }
+        </h2>
+        @if (recentNotifications().length === 0) {
+          <p class="border-t border-zinc-100 px-5 py-6 text-center text-sm text-zinc-500">No notifications yet.</p>
+        } @else {
+          <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Recent notifications">
+            @for (item of recentNotifications(); track item.notification.id) {
+              <li class="flex items-start gap-2 px-5 py-3">
+                @if (!item.notification.isRead) {
+                  <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-600" aria-hidden="true"></span>
+                  <span class="sr-only">Unread:</span>
+                } @else {
+                  <span class="mt-1.5 h-2 w-2 shrink-0" aria-hidden="true"></span>
+                }
+                <div class="min-w-0">
+                  <p class="text-sm" [class.font-semibold]="!item.notification.isRead">
+                    @if (item.link) {
+                      <a [routerLink]="item.link" (click)="open(item.notification.id)" class="hover:underline">{{ item.notification.title }}</a>
+                    } @else {
+                      {{ item.notification.title }}
+                    }
+                  </p>
+                  <p class="mt-0.5 break-words text-xs leading-5 text-zinc-600">{{ item.notification.message }}</p>
+                  <time class="mt-1 block text-xs text-zinc-500" [attr.datetime]="item.notification.createdAt">{{ item.ago }}</time>
+                </div>
+              </li>
+            }
+          </ul>
+          <p class="border-t border-zinc-100 px-5 py-3 text-xs">
+            <a routerLink="/notifications" class="font-medium text-indigo-700 underline hover:text-indigo-900">View all notifications</a>
+          </p>
+        }
+      </section>
+    </div>
+  </div>
 </div>

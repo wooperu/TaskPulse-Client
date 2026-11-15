@@ -1,1 +1,134 @@
-<p>tasks works!</p>
+<div class="space-y-6">
+  <header>
+    <h1 class="text-2xl font-semibold tracking-tight">My tasks</h1>
+    <p class="mt-1 text-sm text-zinc-500">
+      Tasks assigned to you or created by you, across all workspaces.
+      @if (overdueCount() > 0) {
+        <span class="font-medium text-red-700">{{ overdueCount() }} overdue.</span>
+      }
+    </p>
+  </header>
+
+  @if (isSampleData) {
+    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      Showing sample data. Tasks are not connected to your account yet.
+    </p>
+  }
+
+  <div class="flex flex-wrap items-end gap-4" role="group" aria-label="Filter tasks">
+    <div>
+      <label for="relation-filter" class="mb-1 block text-xs font-medium text-zinc-600">Show</label>
+      <select id="relation-filter" [value]="relationFilter()" (change)="onRelationChange($event)" class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200">
+        <option value="all">All my tasks</option>
+        <option value="assigned">Assigned to me</option>
+        <option value="created">Created by me</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="status-filter" class="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+      <select id="status-filter" [value]="statusFilter()" (change)="onStatusChange($event)" class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200">
+        <option value="all">All</option>
+        <option value="pending">Pending</option>
+        <option value="ongoing">Ongoing</option>
+        <option value="completed">Completed</option>
+        <option value="overdue">Overdue</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="workspace-filter" class="mb-1 block text-xs font-medium text-zinc-600">Workspace</label>
+      <select id="workspace-filter" [value]="workspaceFilter()" (change)="onWorkspaceChange($event)" class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200">
+        <option value="all">All workspaces</option>
+        @for (option of workspaceOptions(); track option.id) {
+          <option [value]="option.id">{{ option.name }}</option>
+        }
+      </select>
+    </div>
+
+    @if (hasActiveFilters()) {
+      <button
+        type="button"
+        (click)="clearFilters()"
+        class="rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 underline hover:text-zinc-900"
+      >
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <p role="status" class="text-sm text-zinc-500">
+    Showing {{ rows().length }} of {{ total() }} {{ total() === 1 ? 'task' : 'tasks' }}
+  </p>
+
+  @if (total() === 0) {
+    <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+      <h2 class="text-base font-medium">No tasks yet</h2>
+      <p class="mt-1 text-sm text-zinc-500">Tasks assigned to you or created by you will show up here.</p>
+      <a
+        routerLink="/workspaces"
+        class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+      >
+        Go to my workspaces
+      </a>
+    </section>
+  } @else if (rows().length === 0) {
+    <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
+      <h2 class="text-base font-medium">No tasks match these filters</h2>
+      <p class="mt-1 text-sm text-zinc-500">Try a different status, workspace or filter.</p>
+    </section>
+  } @else {
+    <ul class="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white" aria-label="My tasks">
+      @for (row of rows(); track row.task.id) {
+        <li
+          class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+          [class.border-l-4]="row.overdue"
+          [class.border-l-red-500]="row.overdue"
+          [class.bg-red-50]="row.overdue"
+        >
+          <div class="min-w-0">
+            <p class="break-words text-sm font-medium">
+              <a
+                [routerLink]="['/workspaces', row.task.workspaceId, 'tasks', row.task.id]"
+                class="hover:underline"
+                [class.text-zinc-500]="row.task.status === 'completed'"
+              >{{ row.task.title }}</a>
+            </p>
+            <p class="mt-0.5 text-xs text-zinc-600">
+              <a [routerLink]="['/workspaces', row.task.workspaceId]" class="hover:underline">{{ row.workspaceName }}</a>
+              @if (row.archived) {
+                <span> (archived)</span>
+              }
+              ·
+              @if (row.assignedToMe && row.createdByMe) {
+                Created by you, assigned to you
+              } @else if (row.assignedToMe) {
+                Assigned to you by {{ row.creatorLabel }}
+              } @else {
+                Created by you · {{ row.assigneeLabel === 'Unassigned' ? 'Unassigned' : 'Assigned to ' + row.assigneeLabel }}
+              }
+              ·
+              @if (row.task.dueDate) {
+                <span [class.text-red-700]="row.overdue" [class.font-medium]="row.overdue">Due {{ row.task.dueDate | date: 'MMM d' }}</span>
+              } @else {
+                No due date
+              }
+            </p>
+          </div>
+
+          <div class="flex shrink-0 flex-wrap items-center gap-2">
+            @if (row.overdue) {
+              <span class="rounded-full border px-2 py-0.5 text-xs" [class]="overdueChip">Overdue</span>
+            }
+            <span class="rounded-full border px-2 py-0.5 text-xs" [class]="statusChip[row.task.status]">
+              {{ statusLabels[row.task.status] }}
+            </span>
+            <span class="rounded-full border px-2 py-0.5 text-xs" [class]="priorityChip[row.task.priority]">
+              {{ priorityLabels[row.task.priority] }}
+            </span>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>
