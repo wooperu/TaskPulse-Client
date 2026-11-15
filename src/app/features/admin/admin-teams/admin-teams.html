@@ -1,0 +1,177 @@
+    <div class="space-y-6">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Teams</h1>
+        <p class="mt-1 text-sm text-zinc-500">Create teams and assign managers.</p>
+    </div>
+
+    <button
+        type="button"
+        (click)="openCreate()"
+        class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+    >
+        Create team
+    </button>
+    </header>
+
+    @if (isSampleData) {
+    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Showing sample data. Changes aren't saved and are lost on reload.
+    </p>
+    }
+
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+    <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+    @if (mode(); as m) {
+    <section aria-labelledby="form-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="form-heading" class="text-sm font-medium">
+        {{ m.kind === 'create' ? 'Create team' : 'Edit team' }}
+        </h2>
+
+        <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="mt-4 space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+            <label for="name" class="mb-1 block text-xs font-medium text-zinc-600">Team name</label>
+            <input
+                id="name"
+                type="text"
+                formControlName="name"
+                autocomplete="off"
+                [attr.aria-invalid]="nameError() !== null"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            />
+            @if (nameError(); as message) {
+                <p class="mt-2 text-sm text-red-600">{{ message }}</p>
+            }
+            </div>
+
+            @if (m.kind === 'create') {
+            <div>
+                <label for="managerId" class="mb-1 block text-xs font-medium text-zinc-600">Manager</label>
+                <select
+                id="managerId"
+                formControlName="managerId"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                <option value="">No manager yet</option>
+                @for (user of eligibleManagers(); track user.id) {
+                    <option [value]="user.id">{{ user.firstName }} {{ user.lastName }}</option>
+                }
+                </select>
+            </div>
+            }
+        </div>
+
+        <div>
+            <label for="description" class="mb-1 block text-xs font-medium text-zinc-600">Description</label>
+            <textarea
+            id="description"
+            formControlName="description"
+            rows="3"
+            [attr.aria-invalid]="descriptionError() !== null"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            ></textarea>
+            @if (descriptionError(); as message) {
+            <p class="mt-2 text-sm text-red-600">{{ message }}</p>
+            }
+        </div>
+
+        @if (formError()) {
+            <p role="alert" class="text-sm text-red-600">{{ formError() }}</p>
+        }
+
+        <div class="flex flex-wrap gap-2">
+            <button
+            type="submit"
+            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+            >
+            {{ m.kind === 'create' ? 'Create team' : 'Save changes' }}
+            </button>
+            <button
+            type="button"
+            (click)="closeForm()"
+            class="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+            >
+            Cancel
+            </button>
+        </div>
+        </form>
+    </section>
+    }
+
+    <section class="rounded-xl border border-zinc-200 bg-white p-5">
+    <label for="search" class="mb-1 block text-xs font-medium text-zinc-600">Search teams</label>
+    <input
+        id="search"
+        type="search"
+        [value]="search()"
+        (input)="onSearch($event)"
+        placeholder="Team name or description"
+        class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+    />
+    </section>
+
+    <section aria-labelledby="teams-heading" class="rounded-xl border border-zinc-200 bg-white">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 py-4">
+        <h2 id="teams-heading" class="text-sm font-medium">
+        Teams ({{ rows().length }}<span class="font-normal text-zinc-500"> of {{ total() }}</span>)
+        </h2>
+        @if (unassigned() > 0) {
+        <p class="text-xs text-amber-800">{{ unassigned() }} without a manager</p>
+        }
+    </div>
+
+    @if (rows().length === 0) {
+        <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+        No teams match your search.
+        </p>
+    } @else {
+        <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Teams">
+        @for (row of rows(); track row.team.id) {
+            <li class="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+                <p class="break-words text-sm font-medium">{{ row.team.name }}</p>
+                @if (row.team.description) {
+                <p class="mt-0.5 text-sm text-zinc-600">{{ row.team.description }}</p>
+                }
+                <p class="mt-0.5 text-xs text-zinc-500">
+                {{ row.team.memberCount }} {{ row.team.memberCount === 1 ? 'member' : 'members' }}
+                · Created {{ row.team.createdAt | date: 'MMM d, y' }}
+                </p>
+                @if (row.managerInvalid) {
+                <p class="mt-1 text-xs text-amber-800">
+                    The assigned manager was deactivated or is no longer a manager. Choose a new one.
+                </p>
+                }
+            </div>
+
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                <label [attr.for]="'manager-' + row.team.id" class="sr-only">Manager for {{ row.team.name }}</label>
+                <select
+                [id]="'manager-' + row.team.id"
+                (change)="onManagerChange(row.team, $event)"
+                class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                <option value="" [selected]="row.manager === null">No manager</option>
+                @for (user of eligibleManagers(); track user.id) {
+                    <option [value]="user.id" [selected]="row.manager?.id === user.id">
+                    {{ user.firstName }} {{ user.lastName }}
+                    </option>
+                }
+                </select>
+
+                <button
+                type="button"
+                (click)="openEdit(row.team)"
+                class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                >
+                Edit<span class="sr-only"> {{ row.team.name }}</span>
+                </button>
+            </div>
+            </li>
+        }
+        </ul>
+    }
+    </section>
+    </div>

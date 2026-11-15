@@ -18,6 +18,24 @@ export const ADMIN_ROUTES: Routes = [
                 loadComponent: () =>
                     import('./admin-users/admin-users').then((m) => m.AdminUsers),
             },
+            {
+                path: 'teams',
+                title: 'Teams | TaskPulse',
+                loadComponent: () =>
+                    import('./admin-teams/admin-teams').then((m) => m.AdminTeams),
+            },
+            {
+                path: 'tasks',
+                title: 'All tasks | TaskPulse',
+                loadComponent: () =>
+                    import('./admin-tasks/admin-tasks').then((m) => m.AdminTasks),
+            },
+            {
+                path: 'audit-logs',
+                title: 'Audit logs | TaskPulse',
+                loadComponent: () =>
+                    import('./admin-audit-logs/admin-audit-logs').then((m) => m.AdminAuditLogs),
+            },
         ],
     },
 ];

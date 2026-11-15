@@ -1,0 +1,192 @@
+    <div class="space-y-6">
+    <header>
+    <h1 class="text-2xl font-semibold tracking-tight">All tasks</h1>
+    <p class="mt-1 text-sm text-zinc-500">
+        Every task across all teams. Change status, priority or assignee, or delete a task.
+    </p>
+    </header>
+
+    @if (isSampleData) {
+    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Showing sample data. Changes aren't saved and are lost on reload.
+    </p>
+    }
+
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+    <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+    <section class="rounded-xl border border-zinc-200 bg-white p-5">
+    <h2 class="sr-only">Filter tasks</h2>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
+        <div>
+        <label for="search" class="mb-1 block text-xs font-medium text-zinc-600">Search</label>
+        <input
+            id="search"
+            type="search"
+            [value]="search()"
+            (input)="onSearch($event)"
+            placeholder="Task title"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        />
+        </div>
+
+        <div>
+        <label for="statusFilter" class="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+        <select
+            id="statusFilter"
+            (change)="onStatusFilter($event)"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+            <option value="all" [selected]="statusFilter() === 'all'">All statuses</option>
+            @for (status of statuses; track status) {
+            <option [value]="status" [selected]="statusFilter() === status">{{ statusLabels[status] }}</option>
+            }
+            <option value="overdue" [selected]="statusFilter() === 'overdue'">Overdue</option>
+        </select>
+        </div>
+
+        <div>
+        <label for="priorityFilter" class="mb-1 block text-xs font-medium text-zinc-600">Priority</label>
+        <select
+            id="priorityFilter"
+            (change)="onPriorityFilter($event)"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+            <option value="all" [selected]="priorityFilter() === 'all'">All priorities</option>
+            @for (priority of priorities; track priority) {
+            <option [value]="priority" [selected]="priorityFilter() === priority">{{ priorityLabels[priority] }}</option>
+            }
+        </select>
+        </div>
+
+        <div>
+        <label for="teamFilter" class="mb-1 block text-xs font-medium text-zinc-600">Team</label>
+        <select
+            id="teamFilter"
+            (change)="onTeamFilter($event)"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+            <option value="all" [selected]="teamFilter() === 'all'">All teams</option>
+            @for (team of teams(); track team.id) {
+            <option [value]="team.id" [selected]="teamFilter() === team.id">{{ team.name }}</option>
+            }
+        </select>
+        </div>
+    </div>
+    </section>
+
+    <section aria-labelledby="tasks-heading" class="rounded-xl border border-zinc-200 bg-white">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 py-4">
+        <h2 id="tasks-heading" class="text-sm font-medium">
+        Tasks ({{ rows().length }}<span class="font-normal text-zinc-500"> of {{ total() }}</span>)
+        </h2>
+        @if (overdueCount() > 0) {
+        <p class="text-xs text-red-600">{{ overdueCount() }} overdue</p>
+        }
+    </div>
+
+    @if (rows().length === 0) {
+        <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+        No tasks match your filters.
+        </p>
+    } @else {
+        <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Tasks">
+        @for (row of rows(); track row.task.id) {
+            <li class="flex flex-col gap-3 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="min-w-0">
+                <p class="break-words text-sm font-medium">{{ row.task.title }}</p>
+                <p class="mt-0.5 text-xs text-zinc-500">
+                {{ row.teamName }}
+                ·
+                @if (row.task.dueDate) {
+                    <span [class.text-red-600]="row.overdue">
+                    {{ row.overdue ? 'Overdue · ' : 'Due ' }}{{ row.task.dueDate | date: 'MMM d' }}
+                    </span>
+                } @else {
+                    No due date
+                }
+                </p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                <span class="rounded-full border px-2 py-0.5 text-xs" [class]="statusChip[row.task.status]">
+                    {{ statusLabels[row.task.status] }}
+                </span>
+                <span class="rounded-full border px-2 py-0.5 text-xs" [class]="priorityChip[row.task.priority]">
+                    {{ priorityLabels[row.task.priority] }}
+                </span>
+                @if (row.overdue) {
+                    <span class="rounded-full border px-2 py-0.5 text-xs" [class]="overdueChip">Overdue</span>
+                }
+                </div>
+            </div>
+
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                <label [attr.for]="'status-' + row.task.id" class="sr-only">Status for {{ row.task.title }}</label>
+                <select
+                [id]="'status-' + row.task.id"
+                (change)="onStatusChange(row.task, $event)"
+                class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                @for (status of statuses; track status) {
+                    <option [value]="status" [selected]="row.task.status === status">{{ statusLabels[status] }}</option>
+                }
+                </select>
+
+                <label [attr.for]="'priority-' + row.task.id" class="sr-only">Priority for {{ row.task.title }}</label>
+                <select
+                [id]="'priority-' + row.task.id"
+                (change)="onPriorityChange(row.task, $event)"
+                class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                @for (priority of priorities; track priority) {
+                    <option [value]="priority" [selected]="row.task.priority === priority">{{ priorityLabels[priority] }}</option>
+                }
+                </select>
+
+                <label [attr.for]="'assignee-' + row.task.id" class="sr-only">Assignee for {{ row.task.title }}</label>
+                <select
+                [id]="'assignee-' + row.task.id"
+                (change)="onAssigneeChange(row.task, $event)"
+                class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                <option value="" [selected]="row.task.assigneeId === null">Unassigned</option>
+                @for (user of assignableUsers(); track user.id) {
+                    <option [value]="user.id" [selected]="row.task.assigneeId === user.id">
+                    {{ user.firstName }} {{ user.lastName }}
+                    </option>
+                }
+                </select>
+
+                @if (confirmingId() === row.task.id) {
+                <div role="group" [attr.aria-label]="'Confirm: delete ' + row.task.title" class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-zinc-700">Delete this task?</span>
+                    <button
+                    type="button"
+                    (click)="deleteTask(row.task)"
+                    class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                    >
+                    Confirm
+                    </button>
+                    <button
+                    type="button"
+                    (click)="cancelConfirm()"
+                    class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                    >
+                    Cancel
+                    </button>
+                </div>
+                } @else {
+                <button
+                    type="button"
+                    (click)="askToDelete(row.task.id)"
+                    class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                >
+                    Delete<span class="sr-only"> {{ row.task.title }}</span>
+                </button>
+                }
+            </div>
+            </li>
+        }
+        </ul>
+    }
+    </section>
+    </div>
