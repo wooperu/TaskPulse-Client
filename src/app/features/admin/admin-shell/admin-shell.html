@@ -1,0 +1,19 @@
+<div class="space-y-6">
+    <div>
+        <p class="text-[11px] font-semibold tracking-widest text-zinc-400">ADMIN</p>
+        <nav class="mt-2 flex gap-1 overflow-x-auto border-b border-zinc-200" aria-label="Admin">
+            @for (tab of tabs; track tab.path) {
+                <a
+                    [routerLink]="tab.path"
+                    routerLinkActive="border-zinc-900 text-zinc-950"
+                    ariaCurrentWhenActive="page"
+                    [routerLinkActiveOptions]="{ exact: true }"
+                    class="-mb-px whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm text-zinc-600 transition hover:text-zinc-950"
+                > 
+                    {{ tab.label }} 
+                </a>
+            }
+        </nav>
+    </div>
+    <router-outlet />
+</div>

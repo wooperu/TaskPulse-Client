@@ -106,6 +106,12 @@ export const routes: Routes = [
             .then(m => m.WorkspaceSettings),
       },
       {
+        path: 'admin',
+        loadChildren: () =>
+          import('./features/admin/admin.routes')
+            .then(m => m.ADMIN_ROUTES),
+      },
+      {
         path: 'invitations',
         title: 'My invitations | TaskPulse',
         loadComponent: () =>
