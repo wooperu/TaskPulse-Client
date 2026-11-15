@@ -12,6 +12,12 @@ export const ADMIN_ROUTES: Routes = [
                 loadComponent: () => 
                     import('./admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
             },
+            {
+                path: 'users',
+                title: 'User management | TaskPulse',
+                loadComponent: () =>
+                    import('./admin-users/admin-users').then((m) => m.AdminUsers),
+            },
         ],
     },
 ];
