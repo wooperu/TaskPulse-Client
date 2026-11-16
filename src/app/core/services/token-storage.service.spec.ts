@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AuthTokens, TokenStorage } from './token-storage.service';
 
 const TOKENS: AuthTokens = {
@@ -14,6 +14,8 @@ describe('TokenStorage', () => {
     localStorage.clear();
     TestBed.resetTestingModule();
   });
+
+  afterEach(() => localStorage.clear());
 
   it('returns null when nothing is stored', () => {
     expect(TestBed.inject(TokenStorage).get()).toBeNull();
