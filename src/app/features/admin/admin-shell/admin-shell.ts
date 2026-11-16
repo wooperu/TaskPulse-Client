@@ -8,5 +8,11 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     templateUrl: './admin-shell.html',
 })
 export class AdminShell {
-    protected readonly tabs = [{ label: 'Dashboard', path: '/admin' }];
+    protected readonly tabs = [
+        { label: 'Dashboard', path: '/admin' },
+        { label: 'Users', path: '/admin/users' },
+        { label: 'Teams', path: '/admin/teams' },
+        { label: 'All tasks', path: '/admin/tasks' },
+        { label: 'Audit logs', path: '/admin/audit-logs' }, 
+    ];
 }
