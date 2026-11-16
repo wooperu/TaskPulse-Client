@@ -36,6 +36,18 @@ export const ADMIN_ROUTES: Routes = [
                 loadComponent: () =>
                     import('./admin-audit-logs/admin-audit-logs').then((m) => m.AdminAuditLogs),
             },
+            {
+                path: 'settings',
+                title: 'System settings | TaskPulse',
+                loadComponent: () =>
+                    import('./admin-settings/admin-settings').then((m) => m.AdminSettings),
+            },
+            {
+                path: 'reports',
+                title: 'Reports | TaskPulse',
+                loadComponent: () =>
+                    import('./admin-reports/admin-reports').then((m) => m.AdminReports),
+            },
         ],
     },
 ];

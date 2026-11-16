@@ -1,0 +1,276 @@
+<div class="space-y-6">
+    <header>
+        <h1 class="text-2xl font-semibold tracking-tight">System settings</h1>
+        <p class="mt-1 text-sm text-zinc-500">
+        Task statuses, priorities, categories and notification rules.
+        </p>
+    </header>
+
+    @if (isSampleData) {
+        <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Showing sample data. Changes aren't saved to a server and are lost on reload.
+        </p>
+    }
+
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+    <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+    <section aria-labelledby="statuses-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="statuses-heading" class="text-sm font-medium">Task statuses</h2>
+        <p class="mt-1 text-sm text-zinc-500">
+        You can rename how each status is shown. "Overdue" is worked out automatically from the due date, so it isn't listed.
+        </p>
+
+        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+        @for (key of statusKeys; track key) {
+            <div>
+            <label [attr.for]="'status-' + key" class="mb-1 block text-xs font-medium capitalize text-zinc-600">{{ key }}</label>
+            <input
+                [id]="'status-' + key"
+                type="text"
+                [value]="draft().statusLabels[key]"
+                (input)="onStatusLabel(key, $event)"
+                [attr.aria-invalid]="statusError(key) !== null"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            />
+            @if (statusError(key); as message) {
+                <p class="mt-2 text-sm text-red-600">{{ message }}</p>
+            }
+            </div>
+        }
+        </div>
+
+        <div class="mt-4 max-w-xs">
+        <label for="defaultStatus" class="mb-1 block text-xs font-medium text-zinc-600">Status for new tasks</label>
+        <select
+            id="defaultStatus"
+            (change)="onDefaultStatus($event)"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+            @for (key of statusKeys; track key) {
+            <option [value]="key" [selected]="draft().defaultStatus === key">{{ draft().statusLabels[key] || key }}</option>
+            }
+        </select>
+        </div>
+    </section>
+
+    <section aria-labelledby="priorities-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="priorities-heading" class="text-sm font-medium">Task priorities</h2>
+        <p class="mt-1 text-sm text-zinc-500">Rename how each priority is shown and choose the default.</p>
+
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        @for (key of priorityKeys; track key) {
+            <div>
+            <label [attr.for]="'priority-' + key" class="mb-1 block text-xs font-medium capitalize text-zinc-600">{{ key }}</label>
+            <input
+                [id]="'priority-' + key"
+                type="text"
+                [value]="draft().priorityLabels[key]"
+                (input)="onPriorityLabel(key, $event)"
+                [attr.aria-invalid]="priorityError(key) !== null"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            />
+            @if (priorityError(key); as message) {
+                <p class="mt-2 text-sm text-red-600">{{ message }}</p>
+            }
+            </div>
+        }
+        </div>
+
+        <div class="mt-4 max-w-xs">
+        <label for="defaultPriority" class="mb-1 block text-xs font-medium text-zinc-600">Priority for new tasks</label>
+        <select
+            id="defaultPriority"
+            (change)="onDefaultPriority($event)"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        >
+            @for (key of priorityKeys; track key) {
+            <option [value]="key" [selected]="draft().defaultPriority === key">{{ draft().priorityLabels[key] || key }}</option>
+            }
+        </select>
+        </div>
+    </section>
+
+    <section aria-labelledby="categories-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <div class="p-5">
+        <h2 id="categories-heading" class="text-sm font-medium">Task categories ({{ draft().categories.length }})</h2>
+        <p class="mt-1 text-sm text-zinc-500">Add, rename or remove the categories people can tag tasks with.</p>
+
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div class="flex-1">
+            <label for="newCategory" class="mb-1 block text-xs font-medium text-zinc-600">New category</label>
+            <input
+                id="newCategory"
+                type="text"
+                [value]="newCategory()"
+                (input)="onNewCategory($event)"
+                (keydown.enter)="addCategory()"
+                placeholder="e.g. Research"
+                [attr.aria-invalid]="categoryError() !== ''"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            />
+            @if (categoryError()) {
+                <p class="mt-2 text-sm text-red-600">{{ categoryError() }}</p>
+            }
+            </div>
+            <button
+            type="button"
+            (click)="addCategory()"
+            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 sm:mt-5"
+            >
+            Add category
+            </button>
+        </div>
+        </div>
+
+        @if (draft().categories.length === 0) {
+        <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">No categories yet.</p>
+        } @else {
+        <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Categories">
+            @for (category of draft().categories; track category.id) {
+            <li class="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex-1">
+                <label [attr.for]="'category-' + category.id" class="sr-only">Category name</label>
+                <input
+                    [id]="'category-' + category.id"
+                    type="text"
+                    [value]="category.name"
+                    (input)="onCategoryName(category.id, $event)"
+                    [attr.aria-invalid]="categoryRenameError(category.id) !== null"
+                    class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-hidden transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                />
+                @if (categoryRenameError(category.id); as message) {
+                    <p class="mt-2 text-sm text-red-600">{{ message }}</p>
+                }
+                </div>
+
+                @if (confirmingCategoryId() === category.id) {
+                <div role="group" [attr.aria-label]="'Confirm: remove ' + category.name" class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-zinc-700">Remove this category?</span>
+                    <button
+                    type="button"
+                    (click)="removeCategory(category.id)"
+                    class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                    >
+                    Confirm
+                    </button>
+                    <button
+                    type="button"
+                    (click)="cancelRemoveCategory()"
+                    class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                    >
+                    Cancel
+                    </button>
+                </div>
+                } @else {
+                <button
+                    type="button"
+                    (click)="askToRemoveCategory(category.id)"
+                    class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                >
+                    Remove<span class="sr-only"> {{ category.name }}</span>
+                </button>
+                }
+            </li>
+            }
+        </ul>
+        }
+    </section>
+
+    <section aria-labelledby="notifications-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <div class="p-5">
+        <h2 id="notifications-heading" class="text-sm font-medium">Notification rules</h2>
+        <p class="mt-1 text-sm text-zinc-500">Choose which notifications the system sends.</p>
+        </div>
+
+        <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Notification rules">
+        @for (rule of rules; track rule.key) {
+            <li class="px-5 py-3">
+            <label class="flex cursor-pointer items-start gap-3">
+                <input
+                type="checkbox"
+                [checked]="draft().notificationRules[rule.key]"
+                (change)="onRule(rule.key, $event)"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-zinc-900"
+                />
+                <span>
+                <span class="block text-sm font-medium">{{ rule.label }}</span>
+                <span class="block text-xs text-zinc-500">{{ rule.description }}</span>
+                </span>
+            </label>
+            </li>
+        }
+
+        <li class="px-5 py-3">
+            <label class="flex cursor-pointer items-start gap-3">
+            <input
+                type="checkbox"
+                [checked]="draft().dueSoonReminder.enabled"
+                (change)="onDueSoonEnabled($event)"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-zinc-900"
+            />
+            <span>
+                <span class="block text-sm font-medium">Due-soon reminder</span>
+                <span class="block text-xs text-zinc-500">Remind assignees before a task is due.</span>
+            </span>
+            </label>
+
+            <div class="mt-2 ml-7 max-w-xs">
+            <label for="dueSoonDays" class="mb-1 block text-xs font-medium text-zinc-600">Remind this many days before</label>
+            <select
+                id="dueSoonDays"
+                [disabled]="!draft().dueSoonReminder.enabled"
+                (change)="onDueSoonDays($event)"
+                class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                @for (days of dueSoonOptions; track days) {
+                <option [value]="days" [selected]="draft().dueSoonReminder.daysBefore === days">
+                    {{ days }} {{ days === 1 ? 'day' : 'days' }}
+                </option>
+                }
+            </select>
+            </div>
+        </li>
+
+        <li class="px-5 py-3">
+            <label class="flex cursor-pointer items-start gap-3">
+            <input
+                type="checkbox"
+                [checked]="draft().overdueReminder"
+                (change)="onOverdueReminder($event)"
+                class="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-zinc-900"
+            />
+            <span>
+                <span class="block text-sm font-medium">Overdue reminder</span>
+                <span class="block text-xs text-zinc-500">Remind assignees when a task passes its due date.</span>
+            </span>
+            </label>
+        </li>
+        </ul>
+    </section>
+
+    <section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4">
+        <p class="text-sm" [class.text-zinc-500]="!dirty()" [class.text-zinc-900]="dirty()">
+        {{ dirty() ? 'You have unsaved changes.' : 'No unsaved changes.' }}
+        </p>
+
+        <div class="flex gap-2">
+        <button
+            type="button"
+            (click)="discard()"
+            [disabled]="!dirty()"
+            class="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+            Discard
+        </button>
+        <button
+            type="button"
+            (click)="save()"
+            [disabled]="!dirty()"
+            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+            Save changes
+        </button>
+        </div>
+    </section>
+</div>

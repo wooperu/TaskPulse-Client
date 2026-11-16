@@ -1,0 +1,161 @@
+<div class="space-y-6">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
+        <p class="mt-1 text-sm text-zinc-500">Organization-wide task activity across all teams.</p>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3">
+        <div>
+            <label for="range" class="mb-1 block text-xs font-medium text-zinc-600">Period</label>
+            <select
+            id="range"
+            (change)="onRange($event)"
+            class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+            >
+            @for (item of ranges; track item) {
+                <option [value]="item" [selected]="range() === item">{{ rangeLabels[item] }}</option>
+            }
+            </select>
+        </div>
+
+        <button
+            type="button"
+            (click)="exportCsv()"
+            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+        >
+            Download CSV
+        </button>
+        </div>
+    </header>
+
+    @if (isSampleData) {
+        <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Showing sample data. Reports are not connected to the backend yet.
+        </p>
+    }
+
+    <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
+
+    <dl class="grid grid-cols-2 gap-3 lg:grid-cols-6">
+        @for (card of cards(); track card.label) {
+        <div class="rounded-xl border border-zinc-200 bg-white p-4">
+            <dt class="text-xs font-medium text-zinc-500">{{ card.label }}</dt>
+            <dd class="mt-2 text-3xl font-semibold tracking-tight" [class.text-red-600]="card.alert">
+            {{ card.value }}
+            </dd>
+        </div>
+        }
+    </dl>
+
+    <section aria-labelledby="trend-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="trend-heading" class="text-sm font-medium">Created and completed</h2>
+        <p class="flex items-center gap-4 text-xs text-zinc-500" aria-hidden="true">
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-zinc-300"></span>Created</span>
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-zinc-900"></span>Completed</span>
+        </p>
+        </div>
+
+        <div class="mt-5 flex items-end gap-2 sm:gap-4" aria-hidden="true">
+        @for (point of trend(); track point.label) {
+            <div class="flex flex-1 flex-col items-center gap-2">
+            <div class="flex h-36 w-full items-end justify-center gap-1">
+                <div
+                class="w-3 rounded-t bg-zinc-300 sm:w-5"
+                [style.height.%]="point.createdHeight"
+                [attr.title]="point.label + ': ' + point.created + ' created'"
+                ></div>
+                <div
+                class="w-3 rounded-t bg-zinc-900 sm:w-5"
+                [style.height.%]="point.completedHeight"
+                [attr.title]="point.label + ': ' + point.completed + ' completed'"
+                ></div>
+            </div>
+            <p class="text-xs text-zinc-500">{{ point.label }}</p>
+            </div>
+        }
+        </div>
+
+        <table class="sr-only">
+        <caption>Tasks created and completed</caption>
+        <thead>
+            <tr><th scope="col">Period</th><th scope="col">Created</th><th scope="col">Completed</th></tr>
+        </thead>
+        <tbody>
+            @for (point of trend(); track point.label) {
+            <tr><th scope="row">{{ point.label }}</th><td>{{ point.created }}</td><td>{{ point.completed }}</td></tr>
+            }
+        </tbody>
+        </table>
+    </section>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section aria-labelledby="priority-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="priority-heading" class="text-sm font-medium">New tasks by priority</h2>
+        <ul class="mt-4 space-y-4">
+            @for (row of priorityRows(); track row.label) {
+            <li>
+                <div class="flex items-baseline justify-between gap-4 text-sm">
+                <span>{{ row.label }}</span>
+                <span class="text-zinc-500">{{ row.count }} · {{ row.percent }}%</span>
+                </div>
+                <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100" role="progressbar"
+                [attr.aria-label]="row.label" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="row.percent">
+                <div class="h-full rounded-full bg-zinc-900" [style.width.%]="row.percent"></div>
+                </div>
+            </li>
+            }
+        </ul>
+        </section>
+
+        <section aria-labelledby="workload-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="workload-heading" class="px-5 py-4 text-sm font-medium">Most active people</h2>
+        <ul class="divide-y divide-zinc-100 border-t border-zinc-100">
+            @for (row of workload(); track row.userName) {
+            <li class="flex items-center justify-between gap-4 px-5 py-3">
+                <p class="min-w-0 truncate text-sm">{{ row.userName }}</p>
+                <p class="shrink-0 text-xs text-zinc-500">{{ row.completed }} completed · {{ row.open }} open</p>
+            </li>
+            }
+        </ul>
+        </section>
+    </div>
+
+    <section aria-labelledby="teams-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="teams-heading" class="px-5 py-4 text-sm font-medium">By team</h2>
+
+        <div class="overflow-x-auto border-t border-zinc-100">
+        <table class="w-full min-w-[32rem] text-left text-sm">
+            <thead>
+            <tr class="border-b border-zinc-100 text-xs text-zinc-500">
+                <th scope="col" class="px-5 py-2 font-medium">Team</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Tasks</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Completed</th>
+                <th scope="col" class="px-3 py-2 text-right font-medium">Overdue</th>
+                <th scope="col" class="px-5 py-2 font-medium">Completion rate</th>
+            </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-100">
+            @for (team of teamRows(); track team.teamId) {
+                <tr>
+                <th scope="row" class="px-5 py-3 font-medium">{{ team.teamName }}</th>
+                <td class="px-3 py-3 text-right">{{ team.total }}</td>
+                <td class="px-3 py-3 text-right">{{ team.completed }}</td>
+                <td class="px-3 py-3 text-right" [class.text-red-600]="team.overdue > 0">{{ team.overdue }}</td>
+                <td class="px-5 py-3">
+                    <div class="flex items-center gap-3">
+                    <div class="h-2 w-24 overflow-hidden rounded-full bg-zinc-100" role="progressbar"
+                        [attr.aria-label]="team.teamName + ' completion rate'" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="team.rate">
+                        <div class="h-full rounded-full bg-zinc-900" [style.width.%]="team.rate"></div>
+                    </div>
+                    <span class="text-xs text-zinc-500">{{ team.rate }}%</span>
+                    </div>
+                </td>
+                </tr>
+            }
+            </tbody>
+            </table>
+        </div>
+    </section>
+</div>
