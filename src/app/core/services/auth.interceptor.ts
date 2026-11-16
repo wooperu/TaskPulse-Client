@@ -6,7 +6,16 @@ import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
 
 /** Endpoints that work without a session. They never get a token, and a 401 from them is never retried. */
-const ANONYMOUS_PATHS = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout'];
+const ANONYMOUS_PATHS = [
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/refresh',
+  '/api/auth/logout',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+];
 
 function isAnonymousEndpoint(url: string): boolean {
   const path = url.slice(apiBaseUrl().length).split('?')[0].toLowerCase();

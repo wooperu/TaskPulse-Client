@@ -1,7 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { apiUrl } from '../config/api.config';
 import { AuthService } from './auth.service';
 import { authInterceptor } from './auth.interceptor';
@@ -29,7 +29,6 @@ describe('AuthService', () => {
   let auth: AuthService;
 
   beforeEach(() => {
-    localStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
@@ -37,8 +36,6 @@ describe('AuthService', () => {
     http = TestBed.inject(HttpTestingController);
     auth = TestBed.inject(AuthService);
   });
-
-  afterEach(() => localStorage.clear());
 
   /** Lets the awaited request reach the test backend before we answer it. */
   const flushMicrotasks = () => new Promise<void>((resolve) => setTimeout(resolve));
@@ -96,38 +93,132 @@ describe('AuthService', () => {
     expect(await result).toMatchObject({ ok: false, reason: 'rate-limited' });
   });
 
-  it('drops a stored session the API rejects on startup', async () => {
-    TestBed.inject(TokenStorage).set(TOKENS);
-
-    const restoring = auth.restoreSession();
-
-    // The 401 makes the interceptor try a refresh first; the API refuses that too.
-    await flushMicrotasks();
-    http.expectOne(apiUrl('/api/users/get-user')).flush(null, { status: 401, statusText: 'Unauthorized' });
-    await flushMicrotasks();
-    http.expectOne(apiUrl('/api/auth/refresh')).flush(null, { status: 401, statusText: 'Unauthorized' });
-    await restoring;
-
+  it('starts signed out: tokens are kept in memory only, so a reload means signing in again', () => {
     expect(TestBed.inject(TokenStorage).get()).toBeNull();
     expect(TestBed.inject(CurrentUserService).isSignedIn()).toBe(false);
+    http.expectNone(apiUrl('/api/users/get-user'));
   });
 
-  it('keeps the stored tokens when the server cannot be reached on startup', async () => {
-    TestBed.inject(TokenStorage).set(TOKENS);
-
-    const restoring = auth.restoreSession();
+  it('registers an account, sends trimmed values and stores no tokens', async () => {
+    const result = auth.register({
+      firstName: ' Ada ',
+      lastName: 'Lovelace ',
+      email: ' ada@example.com ',
+      password: ' secret123 ',
+    });
 
     await flushMicrotasks();
-    http.expectOne(apiUrl('/api/users/get-user')).error(new ProgressEvent('error'));
-    await restoring;
+    const request = http.expectOne(apiUrl('/api/auth/register'));
+    expect(request.request.body).toEqual({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      password: ' secret123 ',
+    });
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush(
+      { id: 'u-2', email: 'ada@example.com', firstName: 'Ada', lastName: 'Lovelace', role: 'Employee', isEmailVerified: false },
+      { status: 201, statusText: 'Created' },
+    );
 
-    expect(TestBed.inject(TokenStorage).accessToken()).toBe('access-1');
-    expect(TestBed.inject(CurrentUserService).isSignedIn()).toBe(false);
+    expect((await result).ok).toBe(true);
+    expect(TestBed.inject(TokenStorage).get()).toBeNull();
   });
 
-  it('does nothing on startup when no tokens are stored', async () => {
-    await auth.restoreSession();
+  it('reports a duplicate email on register', async () => {
+    const result = auth.register({ firstName: 'A', lastName: 'B', email: 'a@b.com', password: 'secret123' });
 
-    http.expectNone(apiUrl('/api/users/get-user'));
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/auth/register')).flush(
+      { title: 'Register.EmailAlreadyExists', detail: 'An account with this email already exists.', status: 409 },
+      { status: 409, statusText: 'Conflict' },
+    );
+
+    expect(await result).toMatchObject({
+      ok: false,
+      error: { kind: 'conflict', code: 'Register.EmailAlreadyExists', message: 'An account with this email already exists.' },
+    });
+  });
+
+  it('verifies an email with the link values as query parameters', async () => {
+    const result = auth.verifyEmail('u-1', 'a+b/c=');
+
+    await flushMicrotasks();
+    // "+", "/" and "=" must be percent-encoded on the wire.
+    const request = http.expectOne(apiUrl('/api/auth/verify-email?userId=u-1&token=a%2Bb%2Fc%3D'));
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({ message: 'Your email has been verified. You can now log in.' });
+
+    expect((await result).ok).toBe(true);
+  });
+
+  it('reports an invalid verification link', async () => {
+    const result = auth.verifyEmail('u-1', 'bad');
+
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/auth/verify-email?userId=u-1&token=bad')).flush(
+      { title: 'User.InvalidVerificationToken', detail: 'The verification token is invalid.', status: 400 },
+      { status: 400, statusText: 'Bad Request' },
+    );
+
+    expect(await result).toMatchObject({ ok: false, error: { kind: 'bad-request', code: 'User.InvalidVerificationToken' } });
+  });
+
+  it('asks for a new verification email', async () => {
+    const result = auth.resendVerification(' a@b.com ');
+
+    await flushMicrotasks();
+    const request = http.expectOne(apiUrl('/api/auth/resend-verification'));
+    expect(request.request.body).toEqual({ email: 'a@b.com' });
+    request.flush({ message: 'ok' });
+
+    expect((await result).ok).toBe(true);
+  });
+
+  it('reports rate limiting when asking for a new verification email', async () => {
+    const result = auth.resendVerification('a@b.com');
+
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/auth/resend-verification')).flush(null, { status: 429, statusText: 'Too Many Requests' });
+
+    expect(await result).toMatchObject({ ok: false, error: { kind: 'rate-limited' } });
+  });
+
+  it('asks for a password reset email', async () => {
+    const result = auth.forgotPassword(' a@b.com ');
+
+    await flushMicrotasks();
+    const request = http.expectOne(apiUrl('/api/auth/forgot-password'));
+    expect(request.request.body).toEqual({ email: 'a@b.com' });
+    request.flush({ message: 'ok' });
+
+    expect((await result).ok).toBe(true);
+  });
+
+  it('resets a password with the emailed token', async () => {
+    const result = auth.resetPassword('reset-token', 'newSecret1');
+
+    await flushMicrotasks();
+    const request = http.expectOne(apiUrl('/api/auth/reset-password'));
+    expect(request.request.body).toEqual({ token: 'reset-token', newPassword: 'newSecret1' });
+    request.flush({ message: 'ok' });
+
+    expect((await result).ok).toBe(true);
+  });
+
+  it('reports an expired reset link', async () => {
+    const result = auth.resetPassword('old', 'newSecret1');
+
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/auth/reset-password')).flush(
+      { title: 'ResetPassword.InvalidToken', detail: 'The password reset link is invalid or has expired.', status: 400 },
+      { status: 400, statusText: 'Bad Request' },
+    );
+
+    expect(await result).toMatchObject({
+      ok: false,
+      error: { kind: 'bad-request', code: 'ResetPassword.InvalidToken', message: 'The password reset link is invalid or has expired.' },
+    });
   });
 });

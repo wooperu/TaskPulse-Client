@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CurrentUser, UserRole } from '../../shared/models/current-user.model';
+import { UserResponse } from '../../shared/models/api/auth.api';
 import { apiUrl } from '../config/api.config';
 
 /** Shown while nobody is signed in, so screens that read user() synchronously never get null. */
@@ -13,16 +14,6 @@ const SIGNED_OUT_USER: CurrentUser = {
   role: 'employee',
   isEmailVerified: false,
 };
-
-/** The API's UserDto (camelCase over JSON). Its role arrives as a string such as "Admin". */
-interface UserResponse {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  isEmailVerified: boolean;
-}
 
 const ROLES: readonly UserRole[] = ['admin', 'manager', 'employee'];
 

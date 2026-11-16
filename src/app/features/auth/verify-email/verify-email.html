@@ -22,9 +22,10 @@
           <button
             type="button"
             (click)="verify()"
-            class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            [disabled]="submitting()"
+            class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Verify my email
+            {{ submitting() ? 'Verifying…' : 'Verify my email' }}
           </button>
         }
         @case ('success') {
@@ -76,6 +77,15 @@
         [class.p-3]="statusMessage()"
         [class.text-indigo-800]="statusMessage()"
       >{{ statusMessage() }}</p>
+      <p
+        role="alert"
+        class="text-sm leading-5"
+        [class.mt-5]="errorMessage()"
+        [class.rounded-xl]="errorMessage()"
+        [class.bg-red-50]="errorMessage()"
+        [class.p-3]="errorMessage()"
+        [class.text-red-700]="errorMessage()"
+      >{{ errorMessage() }}</p>
 
       @if (state() !== 'success') {
         <p class="mt-6 text-center text-sm text-slate-500">

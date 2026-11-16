@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 
 type VerifyState = 'confirm' | 'missing' | 'success' | 'failed';
 
@@ -11,9 +12,10 @@ type VerifyState = 'confirm' | 'missing' | 'success' | 'failed';
  * links would otherwise use up the token. `Email:VerificationBaseUrl` on the
  * backend must point at this page.
  *
- * The success and failed states are ready but unreachable until the verify
- * call exists: the backend returns one error (User.InvalidVerificationToken)
- * for both invalid and expired links.
+ * The API answers one error (User.InvalidVerificationToken) for both invalid and
+ * expired links, so both land on the "failed" state. A link whose address was
+ * already verified counts as success. Anything else (offline, rate limited, a
+ * server error) keeps the confirm button so the person can try again.
  */
 @Component({
   selector: 'app-verify-email',
@@ -23,6 +25,7 @@ type VerifyState = 'confirm' | 'missing' | 'success' | 'failed';
   templateUrl: './verify-email.html',
 })
 export class VerifyEmail {
+  private readonly auth = inject(AuthService);
   private readonly query = inject(ActivatedRoute).snapshot.queryParamMap;
 
   // Held in memory only; never displayed or logged.
@@ -31,11 +34,32 @@ export class VerifyEmail {
 
   protected readonly state = signal<VerifyState>(this.userId && this.token ? 'confirm' : 'missing');
   protected readonly statusMessage = signal('');
+  protected readonly errorMessage = signal('');
+  protected readonly submitting = signal(false);
 
-  protected verify(): void {
-    // When wired up: call the verify endpoint here, then set state to 'success' or 'failed'.
-    this.statusMessage.set(
-      'Email verification will be available once the backend is connected.',
-    );
+  protected async verify(): Promise<void> {
+    if (this.submitting() || !this.userId || !this.token) return;
+
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+    this.submitting.set(true);
+    const result = await this.auth.verifyEmail(this.userId, this.token);
+    this.submitting.set(false);
+
+    if (result.ok) {
+      this.state.set('success');
+      return;
+    }
+
+    const { error } = result;
+
+    if (error.code === 'User.EmailAlreadyVerified') {
+      this.state.set('success');
+      this.statusMessage.set('This email address was already verified.');
+    } else if (error.code === 'User.InvalidVerificationToken') {
+      this.state.set('failed');
+    } else {
+      this.errorMessage.set(error.message);
+    }
   }
 }

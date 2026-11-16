@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject } from '@angular/core';
+import { Component, ElementRef, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -6,6 +6,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 import {
   passwordMatchValidator,
   passwordValidators,
@@ -19,6 +20,7 @@ import {
 })
 export class ResetPassword {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly auth = inject(AuthService);
 
   /**
    * Reset token from the emailed link (`?token=...`). It is only held in memory
@@ -28,7 +30,14 @@ export class ResetPassword {
 
   passwordVisible = false;
   confirmPasswordVisible = false;
-  statusMessage = '';
+
+  /** Signals, because the page is zoneless and these change after the request returns. */
+  protected readonly statusMessage = signal('');
+  protected readonly errorMessage = signal('');
+  protected readonly submitting = signal(false);
+
+  /** True once the password was changed. The reset code works once, so the form stops accepting submissions. */
+  protected readonly done = signal(false);
 
   // Control names match the input ids so focus handling can find them.
   readonly form = new FormGroup(
@@ -45,8 +54,11 @@ export class ResetPassword {
     { validators: passwordMatchValidator },
   );
 
-  onSubmit(): void {
-    this.statusMessage = '';
+  async onSubmit(): Promise<void> {
+    if (this.submitting() || this.done() || !this.token) return;
+
+    this.statusMessage.set('');
+    this.errorMessage.set('');
     this.form.markAllAsTouched();
 
     if (this.form.invalid) {
@@ -54,8 +66,17 @@ export class ResetPassword {
       return;
     }
 
-    this.statusMessage =
-      'Your form is valid. Password reset will be available once the backend is connected.';
+    this.submitting.set(true);
+    const result = await this.auth.resetPassword(this.token, this.form.controls.password.value);
+    this.submitting.set(false);
+
+    if (!result.ok) {
+      this.errorMessage.set(result.error.message);
+      return;
+    }
+
+    this.done.set(true);
+    this.statusMessage.set('Your password has been reset. You can now sign in with your new password.');
   }
 
   /** A group-level password mismatch is not on any control, so it falls back to confirmPassword. */
