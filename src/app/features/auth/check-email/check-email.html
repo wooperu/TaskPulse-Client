@@ -26,9 +26,10 @@
         <button
           type="button"
           (click)="resend()"
-          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-800 transition hover:bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          [disabled]="submitting()"
+          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-800 transition hover:bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Resend verification email
+          {{ submitting() ? 'Sending…' : 'Resend verification email' }}
         </button>
       } @else {
         <div class="mb-7">
@@ -61,9 +62,10 @@
 
           <button
             type="submit"
-            class="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            [disabled]="submitting()"
+            class="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Send verification email
+            {{ submitting() ? 'Sending…' : 'Send verification email' }}
           </button>
         </form>
       }
@@ -78,6 +80,15 @@
         [class.p-3]="statusMessage()"
         [class.text-indigo-800]="statusMessage()"
       >{{ statusMessage() }}</p>
+      <p
+        role="alert"
+        class="text-sm leading-5"
+        [class.mt-5]="errorMessage()"
+        [class.rounded-xl]="errorMessage()"
+        [class.bg-red-50]="errorMessage()"
+        [class.p-3]="errorMessage()"
+        [class.text-red-700]="errorMessage()"
+      >{{ errorMessage() }}</p>
 
       <p class="mt-6 text-center text-sm text-slate-500">
         Already verified?

@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { apiUrl } from '../config/api.config';
 import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
@@ -22,7 +22,6 @@ describe('AuthService session handling', () => {
   let tokens: TokenStorage;
 
   beforeEach(() => {
-    localStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -31,8 +30,6 @@ describe('AuthService session handling', () => {
     auth = TestBed.inject(AuthService);
     tokens = TestBed.inject(TokenStorage);
   });
-
-  afterEach(() => localStorage.clear());
 
   const tick = () => new Promise<void>((resolve) => setTimeout(resolve));
 

@@ -2,8 +2,20 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import {
+  ForgotPasswordRequest,
+  LoginRequest,
+  MessageResponse,
+  RefreshTokenRequest,
+  RegisterRequest,
+  ResendVerificationRequest,
+  ResetPasswordRequest,
+  UserResponse,
+} from '../../shared/models/api/auth.api';
 import { CurrentUser } from '../../shared/models/current-user.model';
 import { apiUrl } from '../config/api.config';
+import { parseApiError } from '../http/api-error';
+import { ApiResult, toApiResult } from '../http/api-result';
 import { CurrentUserService } from './current-user.service';
 import { AuthTokens, TokenStorage } from './token-storage.service';
 
@@ -37,18 +49,28 @@ function failure(reason: LoginFailureReason): LoginOutcome {
   return { ok: false, reason, message: FAILURE_MESSAGES[reason] };
 }
 
-/** The API answers errors as ProblemDetails; `title` carries the error code, e.g. Login.EmailNotVerified. */
+/** The API answers errors as ProblemDetails; the code (for example Login.EmailNotVerified) is in `code`. */
 function classify(error: unknown): LoginFailureReason {
-  if (!(error instanceof HttpErrorResponse)) return 'unknown';
+  const apiError = parseApiError(error);
 
-  if (error.status === 0) return 'network';
-  if (error.status === 429) return 'rate-limited';
-  if (error.status === 401) return 'invalid-credentials';
-  if (error.status === 403 && error.error?.title === 'Login.EmailNotVerified') return 'email-not-verified';
-
-  return 'unknown';
+  switch (apiError.kind) {
+    case 'network':
+      return 'network';
+    case 'rate-limited':
+      return 'rate-limited';
+    case 'unauthorized':
+      return 'invalid-credentials';
+    case 'forbidden':
+      return apiError.code === 'Login.EmailNotVerified' ? 'email-not-verified' : 'unknown';
+    default:
+      return 'unknown';
+  }
 }
 
+/**
+ * Sign-in, sign-out and the token lifecycle. Tokens live in memory only (see
+ * TokenStorage), so every page load starts signed out.
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
@@ -61,15 +83,11 @@ export class AuthService {
 
   /** Signs in, stores the tokens and loads the user. Never throws; failures come back as a reason. */
   async login(email: string, password: string): Promise<LoginOutcome> {
+    const body: LoginRequest = { email: email.trim(), password };
     let issued: AuthTokens;
 
     try {
-      issued = await firstValueFrom(
-        this.http.post<AuthTokens>(apiUrl('/api/auth/login'), {
-          email: email.trim(),
-          password,
-        }),
-      );
+      issued = await firstValueFrom(this.http.post<AuthTokens>(apiUrl('/api/auth/login'), body));
     } catch (error) {
       return failure(classify(error));
     }
@@ -81,24 +99,52 @@ export class AuthService {
     } catch (error) {
       // Signed in but the profile call failed: don't leave a half-signed-in session behind.
       this.signOutLocally();
-      return failure(error instanceof HttpErrorResponse && error.status === 0 ? 'network' : 'unknown');
+      return failure(parseApiError(error).kind === 'network' ? 'network' : 'unknown');
     }
   }
 
   /**
-   * Runs once at startup: if tokens are stored, load the user so a page reload keeps you signed in.
-   * An expired access token is refreshed by the HTTP interceptor along the way; a rejected session
-   * is dropped quietly. Never throws, so it can't block startup.
+   * Creates an account. The API answers 201 with the new user and issues no tokens:
+   * the email must be verified before the first sign-in.
    */
-  async restoreSession(): Promise<void> {
-    if (!this.tokens.get()) return;
+  register(input: RegisterRequest): Promise<ApiResult<UserResponse>> {
+    const body: RegisterRequest = {
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      email: input.email.trim(),
+      password: input.password,
+    };
 
-    try {
-      await this.currentUser.load();
-    } catch {
-      // A session the API rejected was already cleared by the interceptor. If the server was just
-      // unreachable, the tokens stay so the next reload can try again; you appear signed out until then.
-    }
+    return toApiResult(this.http.post<UserResponse>(apiUrl('/api/auth/register'), body));
+  }
+
+  /** Confirms an email address with the `userId` and `token` from the emailed link. */
+  verifyEmail(userId: string, token: string): Promise<ApiResult<MessageResponse>> {
+    // Encoded by hand: HttpParams would send characters such as "+" as they are, and the API reads them as spaces.
+    const query = `userId=${encodeURIComponent(userId)}&token=${encodeURIComponent(token)}`;
+
+    return toApiResult(this.http.get<MessageResponse>(apiUrl(`/api/auth/verify-email?${query}`)));
+  }
+
+  /** Asks for a new verification email. The API answers the same way whether or not the account exists. */
+  resendVerification(email: string): Promise<ApiResult<MessageResponse>> {
+    const body: ResendVerificationRequest = { email: email.trim() };
+
+    return toApiResult(this.http.post<MessageResponse>(apiUrl('/api/auth/resend-verification'), body));
+  }
+
+  /** Asks for a password reset email. The API answers the same way whether or not the account exists. */
+  forgotPassword(email: string): Promise<ApiResult<MessageResponse>> {
+    const body: ForgotPasswordRequest = { email: email.trim() };
+
+    return toApiResult(this.http.post<MessageResponse>(apiUrl('/api/auth/forgot-password'), body));
+  }
+
+  /** Sets a new password with the `token` from the emailed link. */
+  resetPassword(token: string, newPassword: string): Promise<ApiResult<MessageResponse>> {
+    const body: ResetPasswordRequest = { token, newPassword };
+
+    return toApiResult(this.http.post<MessageResponse>(apiUrl('/api/auth/reset-password'), body));
   }
 
   /**
@@ -108,7 +154,7 @@ export class AuthService {
    * for the user), so two refreshes with the same token must never happen. Hence:
    *  - callers share one in-flight request, and
    *  - if the stored access token is no longer the one that failed, someone already refreshed
-   *    (this tab a moment ago, or another tab), so there is nothing to do.
+   *    a moment ago, so there is nothing to do.
    */
   refreshSession(failedAccessToken: string | null): Promise<RefreshResult> {
     const current = this.tokens.accessToken();
@@ -129,8 +175,10 @@ export class AuthService {
     const refreshToken = this.tokens.refreshToken();
 
     if (refreshToken) {
+      const body: RefreshTokenRequest = { refreshToken };
+
       try {
-        await firstValueFrom(this.http.post(apiUrl('/api/auth/logout'), { refreshToken }));
+        await firstValueFrom(this.http.post(apiUrl('/api/auth/logout'), body));
       } catch {
         // The local sign-out below still happens; the server drops the token when it expires.
       }
@@ -149,7 +197,7 @@ export class AuthService {
     }
   }
 
-  /** Clears the stored tokens and the in-memory user. Does not call the API. */
+  /** Clears the in-memory tokens and the signed-in user. Does not call the API. */
   signOutLocally(): void {
     this.tokens.clear();
     this.currentUser.clear();
@@ -160,10 +208,10 @@ export class AuthService {
 
     if (!refreshToken) return 'rejected';
 
+    const body: RefreshTokenRequest = { refreshToken };
+
     try {
-      const issued = await firstValueFrom(
-        this.http.post<AuthTokens>(apiUrl('/api/auth/refresh'), { refreshToken }),
-      );
+      const issued = await firstValueFrom(this.http.post<AuthTokens>(apiUrl('/api/auth/refresh'), body));
 
       this.tokens.set(issued);
       return 'refreshed';

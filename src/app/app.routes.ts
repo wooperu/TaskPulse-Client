@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './core/guards/admin.guard';
+import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
 
 export const routes: Routes = [
   {
@@ -12,6 +14,7 @@ export const routes: Routes = [
   },
   {
     path: 'login',
+    canActivate: [guestGuard],
     title: 'Sign in | TaskPulse',
     loadComponent: () =>
       import('./features/auth/login/login')
@@ -19,6 +22,7 @@ export const routes: Routes = [
   },
   {
     path: 'register',
+    canActivate: [guestGuard],
     title: 'Create account | TaskPulse',
     loadComponent: () =>
       import('./features/auth/register/register')
@@ -26,6 +30,7 @@ export const routes: Routes = [
   },
   {
     path: 'forgot-password',
+    canActivate: [guestGuard],
     title: 'Forgot password | TaskPulse',
     loadComponent: () =>
       import('./features/auth/forgot-password/forgot-password')
@@ -40,6 +45,8 @@ export const routes: Routes = [
   },
   {
     path: '',
+    // Every page in the layout needs a signed-in user; the check runs on each navigation inside it.
+    canActivateChild: [authGuard],
     loadComponent: () =>
       import('./layouts/app-layout/app-layout')
         .then(m => m.AppLayout),

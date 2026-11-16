@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { apiUrl } from '../config/api.config';
 import { authInterceptor } from './auth.interceptor';
 import { TokenStorage } from './token-storage.service';
@@ -25,7 +25,6 @@ describe('authInterceptor', () => {
   let tokens: TokenStorage;
 
   beforeEach(() => {
-    localStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -38,8 +37,6 @@ describe('authInterceptor', () => {
     client = TestBed.inject(HttpClient);
     tokens = TestBed.inject(TokenStorage);
   });
-
-  afterEach(() => localStorage.clear());
 
   const tick = () => new Promise<void>((resolve) => setTimeout(resolve));
 
@@ -63,12 +60,30 @@ describe('authInterceptor', () => {
     request.flush({});
   });
 
-  it('sends no token to the login endpoint', () => {
+  it.each([
+    '/api/auth/register',
+    '/api/auth/login',
+    '/api/auth/refresh',
+    '/api/auth/logout',
+    '/api/auth/resend-verification',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+  ])('sends no token to the anonymous endpoint %s', (path) => {
     tokens.set(OLD_TOKENS);
 
-    client.post(apiUrl('/api/auth/login'), {}).subscribe();
+    client.post(apiUrl(path), {}).subscribe();
 
-    const request = http.expectOne(apiUrl('/api/auth/login'));
+    const request = http.expectOne(apiUrl(path));
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({});
+  });
+
+  it('sends no token to verify-email, whatever its query string', () => {
+    tokens.set(OLD_TOKENS);
+
+    client.get(apiUrl('/api/auth/verify-email?userId=u-1&token=t')).subscribe();
+
+    const request = http.expectOne((req) => req.url.startsWith(apiUrl('/api/auth/verify-email')));
     expect(request.request.headers.has('Authorization')).toBe(false);
     request.flush({});
   });

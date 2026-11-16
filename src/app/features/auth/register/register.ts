@@ -1,11 +1,12 @@
-import { Component, ElementRef, inject } from '@angular/core';
+import { Component, ElementRef, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 import { emailValidators } from '../../../shared/validators/email';
 import {
   passwordMatchValidator,
@@ -20,10 +21,15 @@ import {
 })
 export class Register {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   passwordVisible = false;
   confirmPasswordVisible = false;
-  statusMessage = '';
+
+  /** Signals, because the page is zoneless and these change after the request returns. */
+  protected readonly errorMessage = signal('');
+  protected readonly submitting = signal(false);
 
   readonly form = new FormGroup(
     {
@@ -51,8 +57,10 @@ export class Register {
     { validators: passwordMatchValidator },
   );
 
-  onSubmit(): void {
-    this.statusMessage = '';
+  async onSubmit(): Promise<void> {
+    if (this.submitting()) return;
+
+    this.errorMessage.set('');
     this.form.markAllAsTouched();
 
     if (this.form.invalid) {
@@ -60,8 +68,19 @@ export class Register {
       return;
     }
 
-    this.statusMessage =
-      'Your form is valid. Account registration will be available once the backend is connected.';
+    const { firstName, lastName, email, password } = this.form.getRawValue();
+
+    this.submitting.set(true);
+    const result = await this.auth.register({ firstName, lastName, email, password });
+    this.submitting.set(false);
+
+    if (!result.ok) {
+      this.errorMessage.set(result.error.message);
+      return;
+    }
+
+    // The address travels in navigation state, not the URL, so it isn't left in history or logs.
+    await this.router.navigate(['/check-email'], { state: { email: email.trim() } });
   }
 
   /**

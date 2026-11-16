@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthTokens, TokenStorage } from './token-storage.service';
 
 const TOKENS: AuthTokens = {
@@ -10,25 +10,26 @@ const TOKENS: AuthTokens = {
 };
 
 describe('TokenStorage', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    TestBed.resetTestingModule();
-  });
+  beforeEach(() => TestBed.resetTestingModule());
 
-  afterEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
 
   it('returns null when nothing is stored', () => {
-    expect(TestBed.inject(TokenStorage).get()).toBeNull();
+    const storage = TestBed.inject(TokenStorage);
+
+    expect(storage.get()).toBeNull();
+    expect(storage.accessToken()).toBeNull();
+    expect(storage.refreshToken()).toBeNull();
   });
 
-  it('stores tokens and exposes them to a fresh instance (page reload)', () => {
-    TestBed.inject(TokenStorage).set(TOKENS);
+  it('keeps the tokens it is given', () => {
+    const storage = TestBed.inject(TokenStorage);
 
-    TestBed.resetTestingModule();
-    const reloaded = TestBed.inject(TokenStorage);
+    storage.set(TOKENS);
 
-    expect(reloaded.accessToken()).toBe('access');
-    expect(reloaded.refreshToken()).toBe('refresh');
+    expect(storage.get()).toEqual(TOKENS);
+    expect(storage.accessToken()).toBe('access');
+    expect(storage.refreshToken()).toBe('refresh');
   });
 
   it('clears tokens', () => {
@@ -38,12 +39,25 @@ describe('TokenStorage', () => {
     storage.clear();
 
     expect(storage.get()).toBeNull();
-    expect(localStorage.getItem('taskpulse.auth')).toBeNull();
   });
 
-  it('ignores corrupt stored data', () => {
-    localStorage.setItem('taskpulse.auth', '{not json');
+  it('does not survive a page reload (a fresh instance starts empty)', () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    TestBed.resetTestingModule();
 
     expect(TestBed.inject(TokenStorage).get()).toBeNull();
+  });
+
+  it('never writes tokens to localStorage or sessionStorage', () => {
+    const local = vi.spyOn(Storage.prototype, 'setItem');
+    const storage = TestBed.inject(TokenStorage);
+
+    storage.set(TOKENS);
+    storage.clear();
+
+    expect(local).not.toHaveBeenCalled();
+    expect(JSON.stringify(localStorage)).not.toContain('access');
+    expect(JSON.stringify(sessionStorage)).not.toContain('access');
   });
 });
