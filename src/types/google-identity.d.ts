@@ -1,5 +1,7 @@
 interface TaskPulseRuntimeConfig {
   googleDriveOAuthClientId?: string;
+  /** Base URL of the TaskPulse API, without a trailing slash. Defaults to http://localhost:8080. */
+  apiBaseUrl?: string;
 }
 
 interface GoogleTokenResponse {
