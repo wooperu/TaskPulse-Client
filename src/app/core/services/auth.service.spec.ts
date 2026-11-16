@@ -101,11 +101,27 @@ describe('AuthService', () => {
 
     const restoring = auth.restoreSession();
 
+    // The 401 makes the interceptor try a refresh first; the API refuses that too.
     await flushMicrotasks();
     http.expectOne(apiUrl('/api/users/get-user')).flush(null, { status: 401, statusText: 'Unauthorized' });
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/auth/refresh')).flush(null, { status: 401, statusText: 'Unauthorized' });
     await restoring;
 
     expect(TestBed.inject(TokenStorage).get()).toBeNull();
+    expect(TestBed.inject(CurrentUserService).isSignedIn()).toBe(false);
+  });
+
+  it('keeps the stored tokens when the server cannot be reached on startup', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const restoring = auth.restoreSession();
+
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/users/get-user')).error(new ProgressEvent('error'));
+    await restoring;
+
+    expect(TestBed.inject(TokenStorage).accessToken()).toBe('access-1');
     expect(TestBed.inject(CurrentUserService).isSignedIn()).toBe(false);
   });
 

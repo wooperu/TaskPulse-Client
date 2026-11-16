@@ -17,20 +17,25 @@ const STORAGE_KEY = 'taskpulse.auth';
  * (no untrusted HTML, keep dependencies tight). Storage can be missing or throw
  * (private windows, blocked site data), so every call is guarded and the in-memory
  * copy keeps the current tab working either way.
+ *
+ * Reads go to localStorage every time, not to a cached copy: another tab may have
+ * refreshed the tokens, and the API treats reuse of an old refresh token as theft.
  */
 @Injectable({ providedIn: 'root' })
 export class TokenStorage {
-  private cached: AuthTokens | null | undefined;
+  /** Only used when localStorage can't be read. */
+  private memory: AuthTokens | null = null;
 
   get(): AuthTokens | null {
-    if (this.cached !== undefined) return this.cached;
-
-    this.cached = this.read();
-    return this.cached;
+    try {
+      return this.parse(localStorage.getItem(STORAGE_KEY));
+    } catch {
+      return this.memory;
+    }
   }
 
   set(tokens: AuthTokens): void {
-    this.cached = tokens;
+    this.memory = tokens;
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
@@ -40,7 +45,7 @@ export class TokenStorage {
   }
 
   clear(): void {
-    this.cached = null;
+    this.memory = null;
 
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -57,11 +62,10 @@ export class TokenStorage {
     return this.get()?.refreshToken ?? null;
   }
 
-  private read(): AuthTokens | null {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
+  private parse(raw: string | null): AuthTokens | null {
+    if (!raw) return null;
 
+    try {
       const parsed = JSON.parse(raw) as Partial<AuthTokens>;
 
       return parsed.accessToken && parsed.refreshToken ? (parsed as AuthTokens) : null;

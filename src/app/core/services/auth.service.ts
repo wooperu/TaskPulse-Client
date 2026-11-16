@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CurrentUser } from '../../shared/models/current-user.model';
 import { apiUrl } from '../config/api.config';
@@ -16,6 +17,13 @@ export type LoginFailureReason =
 export type LoginOutcome =
   | { readonly ok: true; readonly user: CurrentUser }
   | { readonly ok: false; readonly reason: LoginFailureReason; readonly message: string };
+
+/**
+ * refreshed:   new tokens are stored, retry the request.
+ * rejected:    the API says the session is over (refresh token invalid, expired or missing).
+ * unavailable: couldn't tell (server down, offline, rate limited). Keep the session and let the caller fail.
+ */
+export type RefreshResult = 'refreshed' | 'rejected' | 'unavailable';
 
 const FAILURE_MESSAGES: Record<LoginFailureReason, string> = {
   'invalid-credentials': 'Email or password is incorrect.',
@@ -44,8 +52,12 @@ function classify(error: unknown): LoginFailureReason {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
   private readonly tokens = inject(TokenStorage);
   private readonly currentUser = inject(CurrentUserService);
+
+  /** The refresh call in flight, shared by everyone who needs it (see refreshSession). */
+  private refreshing: Promise<RefreshResult> | null = null;
 
   /** Signs in, stores the tokens and loads the user. Never throws; failures come back as a reason. */
   async login(email: string, password: string): Promise<LoginOutcome> {
@@ -75,9 +87,8 @@ export class AuthService {
 
   /**
    * Runs once at startup: if tokens are stored, load the user so a page reload keeps you signed in.
-   * An expired or rejected session is dropped quietly. Never throws, so it can't block startup.
-   * Note: the access token lives 15 minutes by default and nothing refreshes it yet, so a reload
-   * after it expires signs you out until token refresh is added.
+   * An expired access token is refreshed by the HTTP interceptor along the way; a rejected session
+   * is dropped quietly. Never throws, so it can't block startup.
    */
   async restoreSession(): Promise<void> {
     if (!this.tokens.get()) return;
@@ -85,13 +96,81 @@ export class AuthService {
     try {
       await this.currentUser.load();
     } catch {
-      this.signOutLocally();
+      // A session the API rejected was already cleared by the interceptor. If the server was just
+      // unreachable, the tokens stay so the next reload can try again; you appear signed out until then.
     }
   }
 
-  /** Clears the stored tokens and the in-memory user. Does not call the API (logout comes later). */
+  /**
+   * Gets a new access token after `failedAccessToken` was rejected with 401.
+   *
+   * The API rotates refresh tokens and treats reuse of an old one as theft (it revokes every session
+   * for the user), so two refreshes with the same token must never happen. Hence:
+   *  - callers share one in-flight request, and
+   *  - if the stored access token is no longer the one that failed, someone already refreshed
+   *    (this tab a moment ago, or another tab), so there is nothing to do.
+   */
+  refreshSession(failedAccessToken: string | null): Promise<RefreshResult> {
+    const current = this.tokens.accessToken();
+
+    if (current && failedAccessToken && current !== failedAccessToken) {
+      return Promise.resolve('refreshed');
+    }
+
+    this.refreshing ??= this.requestNewTokens().finally(() => {
+      this.refreshing = null;
+    });
+
+    return this.refreshing;
+  }
+
+  /** Ends the session on the server (best effort), clears local state. Never throws. */
+  async logout(): Promise<void> {
+    const refreshToken = this.tokens.refreshToken();
+
+    if (refreshToken) {
+      try {
+        await firstValueFrom(this.http.post(apiUrl('/api/auth/logout'), { refreshToken }));
+      } catch {
+        // The local sign-out below still happens; the server drops the token when it expires.
+      }
+    }
+
+    this.signOutLocally();
+  }
+
+  /** Called when the session is over on the server's side: clear everything and go to the login page. */
+  expireSession(): void {
+    this.signOutLocally();
+
+    // Before the first navigation finishes (app startup) there's nothing to redirect away from.
+    if (this.router.navigated && !this.router.url.startsWith('/login')) {
+      void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+    }
+  }
+
+  /** Clears the stored tokens and the in-memory user. Does not call the API. */
   signOutLocally(): void {
     this.tokens.clear();
     this.currentUser.clear();
+  }
+
+  private async requestNewTokens(): Promise<RefreshResult> {
+    const refreshToken = this.tokens.refreshToken();
+
+    if (!refreshToken) return 'rejected';
+
+    try {
+      const issued = await firstValueFrom(
+        this.http.post<AuthTokens>(apiUrl('/api/auth/refresh'), { refreshToken }),
+      );
+
+      this.tokens.set(issued);
+      return 'refreshed';
+    } catch (error) {
+      const sessionOver = error instanceof HttpErrorResponse && (error.status === 401 || error.status === 400);
+
+      return sessionOver ? 'rejected' : 'unavailable';
+    }
   }
 }

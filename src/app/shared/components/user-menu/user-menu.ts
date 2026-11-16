@@ -9,6 +9,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationStart, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 import { CurrentUserService } from '../../../core/services/current-user.service';
 import { UserRole } from '../../models/current-user.model';
 
@@ -37,6 +38,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
 })
 export class UserMenu {
   private readonly currentUser = inject(CurrentUserService);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly user = this.currentUser.user;
@@ -68,9 +71,11 @@ export class UserMenu {
     this.isOpen.set(false);
   }
 
-  protected signOut(): void {
-    // When wired up: end the session (logout endpoint), clear client state and go to /login.
-    this.statusMessage.set('Signing out will be available once the backend is connected.');
+  protected async signOut(): Promise<void> {
+    this.isOpen.set(false);
+
+    await this.auth.logout();
+    await this.router.navigateByUrl('/login');
   }
 
   protected closeAndFocusButton(): void {
