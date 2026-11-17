@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, ElementRef, inject, signal } from '@angular/core';
 import {
   FormControl,
@@ -22,12 +23,19 @@ function safeReturnUrl(value: string | null): string | null {
   styleUrl: './login.css',
 })
 export class Login {
+  private readonly document = inject(DOCUMENT);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
   passwordVisible = false;
+
+  /**
+   * A confirmation passed along by whatever sent the person here (for example "Your password was
+   * changed"). It comes from navigation state, never from the URL, so a link can't put text on this page.
+   */
+  protected readonly notice = this.readNoticeFromState();
 
   /** Signals, because the page is zoneless and these change after the login request returns. */
   protected readonly errorMessage = signal('');
@@ -77,6 +85,13 @@ export class Login {
     const returnUrl = safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
 
     await this.router.navigateByUrl(returnUrl ?? (outcome.user.role === 'admin' ? '/admin' : '/dashboard'));
+  }
+
+  private readNoticeFromState(): string {
+    const state: unknown = this.document.defaultView?.history.state;
+    const notice = (state as { notice?: unknown } | null)?.notice;
+
+    return typeof notice === 'string' ? notice.trim() : '';
   }
 
   /** Moves focus to the first invalid field (control names double as input ids in the template). */

@@ -4,15 +4,6 @@
     <p class="mt-1 text-sm text-zinc-500">Manage your profile, email, password and sessions.</p>
   </header>
 
-  @if (isSampleData) {
-    <p
-      role="note"
-      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-    >
-      Showing a sample account. Changes aren't saved and are lost on reload.
-    </p>
-  }
-
   <section aria-labelledby="profile-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
     <h2 id="profile-heading" class="text-sm font-medium">Profile</h2>
     <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" novalidate class="mt-4 space-y-4">
@@ -48,18 +39,21 @@
           }
         </div>
       </div>
-      <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Save profile</button>
+      <button type="submit" [disabled]="busy()" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">Save profile</button>
     </form>
     <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      @let profileFeedback = profileMessage();
       <p
         role="status"
         class="text-sm leading-5"
-        [class.mt-4]="profileMessage()"
-        [class.rounded-lg]="profileMessage()"
-        [class.bg-zinc-100]="profileMessage()"
-        [class.p-3]="profileMessage()"
-        [class.text-zinc-800]="profileMessage()"
-      >{{ profileMessage() }}</p>
+        [class.mt-4]="profileFeedback"
+        [class.rounded-lg]="profileFeedback"
+        [class.p-3]="profileFeedback"
+        [class.bg-zinc-100]="profileFeedback?.tone === 'success'"
+        [class.text-zinc-800]="profileFeedback?.tone === 'success'"
+        [class.bg-red-50]="profileFeedback?.tone === 'error'"
+        [class.text-red-700]="profileFeedback?.tone === 'error'"
+      >{{ profileFeedback?.text }}</p>
   </section>
 
   <section aria-labelledby="email-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
@@ -113,18 +107,21 @@
       <p class="text-xs leading-5 text-zinc-500">
         We'll send a verification link to the new address, and you'll be asked to sign in again.
       </p>
-      <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Change email</button>
+      <button type="submit" [disabled]="busy()" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">Change email</button>
     </form>
     <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      @let emailFeedback = emailMessage();
       <p
         role="status"
         class="text-sm leading-5"
-        [class.mt-4]="emailMessage()"
-        [class.rounded-lg]="emailMessage()"
-        [class.bg-zinc-100]="emailMessage()"
-        [class.p-3]="emailMessage()"
-        [class.text-zinc-800]="emailMessage()"
-      >{{ emailMessage() }}</p>
+        [class.mt-4]="emailFeedback"
+        [class.rounded-lg]="emailFeedback"
+        [class.p-3]="emailFeedback"
+        [class.bg-zinc-100]="emailFeedback?.tone === 'success'"
+        [class.text-zinc-800]="emailFeedback?.tone === 'success'"
+        [class.bg-red-50]="emailFeedback?.tone === 'error'"
+        [class.text-red-700]="emailFeedback?.tone === 'error'"
+      >{{ emailFeedback?.text }}</p>
   </section>
 
   <section aria-labelledby="password-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
@@ -177,18 +174,21 @@
           }
         </div>
       <p class="text-xs leading-5 text-zinc-500">Changing your password ends your other sessions.</p>
-      <button type="submit" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">Change password</button>
+      <button type="submit" [disabled]="busy()" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70">Change password</button>
     </form>
     <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      @let passwordFeedback = passwordMessage();
       <p
         role="status"
         class="text-sm leading-5"
-        [class.mt-4]="passwordMessage()"
-        [class.rounded-lg]="passwordMessage()"
-        [class.bg-zinc-100]="passwordMessage()"
-        [class.p-3]="passwordMessage()"
-        [class.text-zinc-800]="passwordMessage()"
-      >{{ passwordMessage() }}</p>
+        [class.mt-4]="passwordFeedback"
+        [class.rounded-lg]="passwordFeedback"
+        [class.p-3]="passwordFeedback"
+        [class.bg-zinc-100]="passwordFeedback?.tone === 'success'"
+        [class.text-zinc-800]="passwordFeedback?.tone === 'success'"
+        [class.bg-red-50]="passwordFeedback?.tone === 'error'"
+        [class.text-red-700]="passwordFeedback?.tone === 'error'"
+      >{{ passwordFeedback?.text }}</p>
   </section>
 
   <section aria-labelledby="sessions-heading" class="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
@@ -197,19 +197,23 @@
     <button
       type="button"
       (click)="signOutEverywhere()"
-      class="mt-4 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+      [disabled]="busy()"
+      class="mt-4 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
     >
       Sign out of all devices
     </button>
     <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
+      @let sessionsFeedback = sessionsMessage();
       <p
         role="status"
         class="text-sm leading-5"
-        [class.mt-4]="sessionsMessage()"
-        [class.rounded-lg]="sessionsMessage()"
-        [class.bg-zinc-100]="sessionsMessage()"
-        [class.p-3]="sessionsMessage()"
-        [class.text-zinc-800]="sessionsMessage()"
-      >{{ sessionsMessage() }}</p>
+        [class.mt-4]="sessionsFeedback"
+        [class.rounded-lg]="sessionsFeedback"
+        [class.p-3]="sessionsFeedback"
+        [class.bg-zinc-100]="sessionsFeedback?.tone === 'success'"
+        [class.text-zinc-800]="sessionsFeedback?.tone === 'success'"
+        [class.bg-red-50]="sessionsFeedback?.tone === 'error'"
+        [class.text-red-700]="sessionsFeedback?.tone === 'error'"
+      >{{ sessionsFeedback?.text }}</p>
   </section>
 </div>

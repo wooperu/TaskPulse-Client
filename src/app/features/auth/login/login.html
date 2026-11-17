@@ -20,6 +20,10 @@
         </p>
       </div>
 
+      @if (notice) {
+        <p role="status" class="mb-5 rounded-xl bg-indigo-50 p-3 text-sm leading-5 text-indigo-800">{{ notice }}</p>
+      }
+
       @if (unverifiedEmail(); as email) {
         <app-unverified-email-notice class="mb-5 block" [email]="email" />
       }

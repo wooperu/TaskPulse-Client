@@ -3,6 +3,8 @@ import { inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
+  ChangeEmailRequest,
+  ChangePasswordRequest,
   ForgotPasswordRequest,
   LoginRequest,
   MessageResponse,
@@ -168,6 +170,43 @@ export class AuthService {
     });
 
     return this.refreshing;
+  }
+
+  /**
+   * Changes the password. The API then revokes every refresh token, so the caller must follow a
+   * success with signOutAndRedirect. A wrong current password is a 400, not a 401.
+   */
+  changePassword(currentPassword: string, newPassword: string): Promise<ApiResult> {
+    const body: ChangePasswordRequest = { currentPassword, newPassword };
+
+    return toApiResult(this.http.post<void>(apiUrl('/api/auth/change-password'), body));
+  }
+
+  /**
+   * Changes the email address. The API marks the new address unverified, sends it a verification link
+   * and revokes every refresh token, so the caller must follow a success with signOutAndRedirect.
+   */
+  changeEmail(newEmail: string, currentPassword: string): Promise<ApiResult> {
+    const body: ChangeEmailRequest = { newEmail: newEmail.trim(), currentPassword };
+
+    return toApiResult(this.http.put<void>(apiUrl('/api/users/change-email'), body));
+  }
+
+  /**
+   * Revokes every refresh token of the user on the server, on every device. The access tokens already
+   * issued keep working until they expire, so the caller follows a success with signOutAndRedirect.
+   */
+  logoutAll(): Promise<ApiResult> {
+    return toApiResult(this.http.post<void>(apiUrl('/api/auth/logout-all'), null));
+  }
+
+  /**
+   * Clears the session and opens the login page with a notice. The session is cleared first: a
+   * signed-in visitor would be sent away from the login page by the guest guard.
+   */
+  async signOutAndRedirect(notice: string): Promise<void> {
+    this.signOutLocally();
+    await this.router.navigate(['/login'], { state: { notice } });
   }
 
   /** Ends the session on the server (best effort), clears local state. Never throws. */

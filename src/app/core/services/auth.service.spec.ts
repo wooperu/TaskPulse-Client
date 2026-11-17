@@ -221,4 +221,95 @@ describe('AuthService', () => {
       error: { kind: 'bad-request', code: 'ResetPassword.InvalidToken', message: 'The password reset link is invalid or has expired.' },
     });
   });
+
+  it('changes the password with the access token and does not sign out by itself', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const result = auth.changePassword('oldSecret1', 'newSecret1');
+
+    await flushMicrotasks();
+    const request = http.expectOne(apiUrl('/api/auth/change-password'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-1');
+    expect(request.request.body).toEqual({ currentPassword: 'oldSecret1', newPassword: 'newSecret1' });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect((await result).ok).toBe(true);
+    // Ending the session is the caller's decision (signOutAndRedirect), after it has seen the success.
+    expect(TestBed.inject(TokenStorage).get()).not.toBeNull();
+  });
+
+  it('reports a wrong current password without touching the session', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const result = auth.changePassword('wrong', 'newSecret1');
+
+    await flushMicrotasks();
+    // The API answers 400 for this, not 401, so the interceptor does not try to refresh.
+    http.expectOne(apiUrl('/api/auth/change-password')).flush(
+      { title: 'ChangePassword.InvalidCurrentPassword', detail: 'The current password is incorrect.', status: 400 },
+      { status: 400, statusText: 'Bad Request' },
+    );
+
+    expect(await result).toMatchObject({
+      ok: false,
+      error: { kind: 'bad-request', code: 'ChangePassword.InvalidCurrentPassword', message: 'The current password is incorrect.' },
+    });
+    expect(TestBed.inject(TokenStorage).accessToken()).toBe('access-1');
+  });
+
+  it('changes the email with a trimmed address', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const result = auth.changeEmail(' new@example.com ', 'secret123');
+
+    await flushMicrotasks();
+    const request = http.expectOne(apiUrl('/api/users/change-email'));
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-1');
+    expect(request.request.body).toEqual({ newEmail: 'new@example.com', currentPassword: 'secret123' });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect((await result).ok).toBe(true);
+  });
+
+  it('reports an email that is already in use', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const result = auth.changeEmail('taken@example.com', 'secret123');
+
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/users/change-email')).flush(
+      { title: 'ChangeEmail.EmailAlreadyInUse', detail: 'An account with this email already exists.', status: 409 },
+      { status: 409, statusText: 'Conflict' },
+    );
+
+    expect(await result).toMatchObject({ ok: false, error: { kind: 'conflict', code: 'ChangeEmail.EmailAlreadyInUse' } });
+  });
+
+  it('signs out of every device with the access token attached', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const result = auth.logoutAll();
+
+    await flushMicrotasks();
+    const request = http.expectOne(apiUrl('/api/auth/logout-all'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-1');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect((await result).ok).toBe(true);
+  });
+
+  it('reports a failed sign-out-everywhere and keeps the session', async () => {
+    TestBed.inject(TokenStorage).set(TOKENS);
+
+    const result = auth.logoutAll();
+
+    await flushMicrotasks();
+    http.expectOne(apiUrl('/api/auth/logout-all')).flush(null, { status: 500, statusText: 'Server Error' });
+
+    expect(await result).toMatchObject({ ok: false, error: { kind: 'server' } });
+    expect(TestBed.inject(TokenStorage).accessToken()).toBe('access-1');
+  });
 });
