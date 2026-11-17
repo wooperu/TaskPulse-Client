@@ -1,154 +1,180 @@
-    <div class="space-y-6">
+<div class="space-y-6">
     <header>
-    <h1 class="text-2xl font-semibold tracking-tight">Audit logs</h1>
-    <p class="mt-1 text-sm text-zinc-500">Who did what, and when.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Login activity</h1>
+        <p class="mt-1 text-sm text-zinc-500">Sign-in attempts, newest first.</p>
     </header>
 
-    @if (isSampleData) {
-    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        Showing sample data. The audit log is not connected to the backend yet.
-    </p>
-    }
+    <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
 
-    <section class="rounded-xl border border-zinc-200 bg-white p-5">
-    <h2 class="sr-only">Filter the log</h2>
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="sm:col-span-2 lg:col-span-4">
-        <label for="search" class="mb-1 block text-xs font-medium text-zinc-600">Search</label>
-        <input
-            id="search"
-            type="search"
-            [value]="search()"
-            (input)="onSearch($event)"
-            placeholder="Person, action, target or details"
-            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-        />
-        </div>
+    <section aria-labelledby="filter-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 id="filter-heading" class="sr-only">Filter the list</h2>
 
-        <div>
-        <label for="category" class="mb-1 block text-xs font-medium text-zinc-600">Type</label>
-        <select
-            id="category"
-            (change)="onCategory($event)"
-            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-        >
-            <option value="all" [selected]="category() === 'all'">All types</option>
-            @for (item of categories; track item) {
-            <option [value]="item" [selected]="category() === item">{{ categoryLabels[item] }}</option>
-            }
-        </select>
-        </div>
-
-        <div>
-        <label for="actor" class="mb-1 block text-xs font-medium text-zinc-600">Person</label>
-        <select
-            id="actor"
-            (change)="onActor($event)"
-            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-        >
-            <option value="all" [selected]="actor() === 'all'">Everyone</option>
-            @for (person of actors(); track person.id) {
-            <option [value]="person.id" [selected]="actor() === person.id">{{ person.name }}</option>
-            }
-        </select>
-        </div>
-
-        <div>
-        <label for="from" class="mb-1 block text-xs font-medium text-zinc-600">From</label>
-        <input
-            id="from"
-            type="date"
-            [value]="from()"
-            [max]="to() || null"
-            (change)="onFrom($event)"
-            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-        />
-        </div>
-
-        <div>
-        <label for="to" class="mb-1 block text-xs font-medium text-zinc-600">To</label>
-        <input
-            id="to"
-            type="date"
-            [value]="to()"
-            [min]="from() || null"
-            (change)="onTo($event)"
-            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-        />
-        </div>
-    </div>
-
-    @if (hasFilters()) {
-        <button
-        type="button"
-        (click)="clearFilters()"
-        class="mt-3 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
-        >
-        Clear filters
-        </button>
-    }
-    </section>
-
-    <section aria-labelledby="log-heading" class="rounded-xl border border-zinc-200 bg-white">
-    <h2 id="log-heading" class="px-5 py-4 text-sm font-medium">
-        Activity ({{ rows().length }}<span class="font-normal text-zinc-500"> of {{ total() }}</span>)
-    </h2>
-
-    @if (rows().length === 0) {
-        <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
-        No activity matches your filters.
-        </p>
-    } @else {
-        <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Audit log">
-        @for (log of pageRows(); track log.id) {
-            <li class="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <div class="min-w-0">
-                <p class="text-sm">
-                <span class="font-medium">{{ log.actorName }}</span>
-                {{ log.action.toLowerCase() }}
-                <span class="font-medium">{{ log.target }}</span>
-                </p>
-                @if (log.details) {
-                <p class="mt-0.5 text-xs text-zinc-600">{{ log.details }}</p>
-                }
-                <div class="mt-2 flex flex-wrap items-center gap-2">
-                <span class="rounded-full border px-2 py-0.5 text-xs" [class]="categoryChip[log.category]">
-                    {{ categoryLabels[log.category] }}
-                </span>
-                <span class="text-xs text-zinc-500">IP {{ log.ipAddress }}</span>
+        <form (submit)="onSearch($event)" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="sm:col-span-2 lg:col-span-4">
+                <label for="email" class="mb-1 block text-xs font-medium text-zinc-600">Email (full address)</label>
+                <div class="flex gap-2">
+                    <input
+                        id="email"
+                        type="search"
+                        maxlength="256"
+                        autocomplete="off"
+                        [value]="emailInput()"
+                        (input)="onEmailInput($event)"
+                        placeholder="name@example.com"
+                        class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                    />
+                    <button
+                        type="submit"
+                        class="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                    >
+                        Search
+                    </button>
                 </div>
             </div>
 
-            <p class="shrink-0 text-xs text-zinc-500">{{ log.at | date: 'MMM d, y, h:mm a' }}</p>
-            </li>
+            <div>
+                <label for="outcome" class="mb-1 block text-xs font-medium text-zinc-600">Result</label>
+                <select
+                    id="outcome"
+                    (change)="onOutcome($event)"
+                    class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                >
+                    <option value="all" [selected]="outcome() === 'all'">All results</option>
+                    @for (item of outcomes; track item) {
+                        <option [value]="item" [selected]="outcome() === item">{{ outcomeLabels[item] }}</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label for="from" class="mb-1 block text-xs font-medium text-zinc-600">From</label>
+                <input
+                    id="from"
+                    type="date"
+                    [value]="from()"
+                    [max]="to() || null"
+                    (change)="onFrom($event)"
+                    class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                />
+            </div>
+
+            <div>
+                <label for="to" class="mb-1 block text-xs font-medium text-zinc-600">To</label>
+                <input
+                    id="to"
+                    type="date"
+                    [value]="to()"
+                    [min]="from() || null"
+                    (change)="onTo($event)"
+                    class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+                />
+            </div>
+        </form>
+
+        @if (hasFilters()) {
+            <button
+                type="button"
+                (click)="clearFilters()"
+                class="mt-3 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+            >
+                Clear filters
+            </button>
         }
-        </ul>
+    </section>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 px-5 py-3">
-        <p class="text-xs text-zinc-500" role="status">
-            Showing {{ rangeStart() }}–{{ rangeEnd() }} of {{ rows().length }}
-        </p>
-
-        <div class="flex items-center gap-2">
+    @if (error()) {
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p>{{ error() }}</p>
             <button
-            type="button"
-            (click)="previous()"
-            [disabled]="page() === 0"
-            class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                (click)="retry()"
+                class="rounded-lg border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
             >
-            Previous
+                Try again
             </button>
-            <span class="text-xs text-zinc-500">Page {{ page() + 1 }} of {{ pageCount() }}</span>
-            <button
-            type="button"
-            (click)="next()"
-            [disabled]="page() >= pageCount() - 1"
-            class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-            Next
-            </button>
-        </div>
         </div>
     }
+
+    <section aria-labelledby="log-heading" [attr.aria-busy]="loading()" class="rounded-xl border border-zinc-200 bg-white">
+        <h2 id="log-heading" class="px-5 py-4 text-sm font-medium">
+            Attempts
+            @if (loaded()) {
+                <span class="font-normal text-zinc-500">({{ totalCount() }})</span>
+            }
+        </h2>
+
+        @if (!loaded()) {
+            <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Loading…</p>
+        } @else if (rows().length === 0) {
+            <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+                {{ hasFilters() ? 'No sign-in attempts match your filters.' : 'No sign-in attempts yet.' }}
+            </p>
+        } @else {
+            <ul class="divide-y divide-zinc-100 border-t border-zinc-100" [class.opacity-60]="loading()" aria-label="Sign-in attempts">
+                @for (log of rows(); track log.id) {
+                    <li class="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-medium break-all">{{ log.email }}</span>
+                                <span class="rounded-full border px-2 py-0.5 text-xs" [class]="outcomeChip[log.outcome]">
+                                    {{ outcomeLabels[log.outcome] }}
+                                </span>
+                            </div>
+
+                            @if (log.userId; as userId) {
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <span class="font-mono text-xs break-all text-zinc-600 select-all">{{ userId }}</span>
+                                    <button
+                                        type="button"
+                                        (click)="copyId(userId)"
+                                        [attr.aria-label]="'Copy user ID for ' + log.email"
+                                        class="rounded-lg border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                                    >
+                                        {{ copiedId() === userId ? 'Copied' : 'Copy ID' }}
+                                    </button>
+                                </div>
+                            } @else {
+                                <p class="mt-2 text-xs text-zinc-500">No account with this email.</p>
+                            }
+
+                            <p class="mt-2 text-xs text-zinc-500">
+                                IP {{ log.ipAddress ?? 'unknown' }}
+                                @if (log.userAgent) {
+                                    <span class="block max-w-xl truncate" [title]="log.userAgent">{{ log.userAgent }}</span>
+                                }
+                            </p>
+                        </div>
+
+                        <p class="shrink-0 text-xs text-zinc-500">{{ log.occurredAtUtc | date: 'MMM d, y, h:mm a' }}</p>
+                    </li>
+                }
+            </ul>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 px-5 py-3">
+                <p class="text-xs text-zinc-500" role="status">
+                    Showing {{ rangeStart() }}–{{ rangeEnd() }} of {{ totalCount() }}
+                </p>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        (click)="previous()"
+                        [disabled]="page() <= 1 || loading()"
+                        class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
+                    <span class="text-xs text-zinc-500">Page {{ page() }} of {{ totalPages() }}</span>
+                    <button
+                        type="button"
+                        (click)="next()"
+                        [disabled]="page() >= totalPages() || loading()"
+                        class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        }
     </section>
-    </div>
+</div>

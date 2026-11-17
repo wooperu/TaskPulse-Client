@@ -1,12 +1,9 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { AdminAuditService } from '../../../core/services/admin-audit.service';
-import {
-  AUDIT_CATEGORY_CHIP,
-  AUDIT_CATEGORY_LABELS,
-  AuditCategory,
-} from '../../../shared/models/audit-log.model';
-import { toLocalDateKey } from '../../../shared/utils/date-key';
+import { AUDIT_PAGE_SIZE, AdminAuditService } from '../../../core/services/admin-audit.service';
+import { ApiLoginOutcome, LoginAuditResponse } from '../../../shared/models/api/login-audit.api';
+import { LOGIN_OUTCOME_CHIP, LOGIN_OUTCOME_LABELS } from '../../../shared/models/audit-log.model';
+import { addDaysToDateKey, localDayStartIso } from '../../../shared/utils/date-key';
 
 @Component({
     selector: 'app-admin-audit-logs',
@@ -17,112 +14,150 @@ import { toLocalDateKey } from '../../../shared/utils/date-key';
 export class AdminAuditLogs {
     private readonly auditService = inject(AdminAuditService);
 
-    protected readonly isSampleData = this.auditService.isSampleData;
-    protected readonly categoryLabels = AUDIT_CATEGORY_LABELS;
-    protected readonly categoryChip = AUDIT_CATEGORY_CHIP;
-    protected readonly categories = Object.keys(AUDIT_CATEGORY_LABELS) as AuditCategory[];
-    protected readonly pageSize = 10;
+    /** Only the newest request may update the page, so a slow, older answer cannot overwrite a newer one. */
+    private requestId = 0;
 
-    protected readonly search = signal('');
-    protected readonly category = signal<'all' | AuditCategory>('all');
-    protected readonly actor = signal('all');
+    protected readonly outcomeLabels = LOGIN_OUTCOME_LABELS;
+    protected readonly outcomeChip = LOGIN_OUTCOME_CHIP;
+    protected readonly outcomes = Object.keys(LOGIN_OUTCOME_LABELS) as ApiLoginOutcome[];
+
+    /** What is typed in the email box. It is only sent when the form is submitted. */
+    protected readonly emailInput = signal('');
+    /** The email filter the list was last loaded with. */
+    private readonly appliedEmail = signal('');
+    protected readonly outcome = signal<'all' | ApiLoginOutcome>('all');
     /** 'YYYY-MM-DD' from the date inputs, or '' for no limit. */
     protected readonly from = signal('');
     protected readonly to = signal('');
-    protected readonly page = signal(0);
 
-    protected readonly actors = computed(() => {
-        const byId = new Map(this.auditService.logs().map((log) => [log.actorId, log.actorName]));
-        return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-    });
+    protected readonly rows = signal<readonly LoginAuditResponse[]>([]);
+    protected readonly page = signal(1);
+    protected readonly totalPages = signal(1);
+    protected readonly totalCount = signal(0);
+    protected readonly loading = signal(false);
+    protected readonly loaded = signal(false);
+    protected readonly error = signal('');
+    protected readonly statusMessage = signal('');
+    protected readonly copiedId = signal<string | null>(null);
 
     protected readonly hasFilters = computed(
         () =>
-        this.search() !== '' ||
-        this.category() !== 'all' ||
-        this.actor() !== 'all' ||
-        this.from() !== '' ||
-        this.to() !== '',
+            this.emailInput() !== '' ||
+            this.appliedEmail() !== '' ||
+            this.outcome() !== 'all' ||
+            this.from() !== '' ||
+            this.to() !== '',
     );
-
-  /** Newest first, with all filters applied. */
-    protected readonly rows = computed(() => {
-        const term = this.search().trim().toLowerCase();
-        const category = this.category();
-        const actor = this.actor();
-        const from = this.from();
-        const to = this.to();
-
-    return this.auditService
-        .logs()
-        .filter((log) => {
-            if (category !== 'all' && log.category !== category) return false;
-            if (actor !== 'all' && log.actorId !== actor) return false;
-
-        const day = toLocalDateKey(new Date(log.at));
-        if (from && day < from) return false;
-        if (to && day > to) return false;
-
-        return (
-            !term ||
-            log.actorName.toLowerCase().includes(term) ||
-            log.action.toLowerCase().includes(term) ||
-            log.target.toLowerCase().includes(term) ||
-            (log.details ?? '').toLowerCase().includes(term)
-            );
-        })
-        .sort((a, b) => b.at.localeCompare(a.at));
-    });
-
-    protected readonly total = computed(() => this.auditService.logs().length);
-    protected readonly pageCount = computed(() => Math.max(1, Math.ceil(this.rows().length / this.pageSize)));
-    protected readonly pageRows = computed(() =>
-        this.rows().slice(this.page() * this.pageSize, (this.page() + 1) * this.pageSize),
+    protected readonly rangeStart = computed(() =>
+        this.totalCount() === 0 ? 0 : (this.page() - 1) * AUDIT_PAGE_SIZE + 1,
     );
-    protected readonly rangeStart = computed(() => (this.rows().length === 0 ? 0 : this.page() * this.pageSize + 1));
-    protected readonly rangeEnd = computed(() =>
-        Math.min((this.page() + 1) * this.pageSize, this.rows().length),
-    );
+    protected readonly rangeEnd = computed(() => Math.min(this.page() * AUDIT_PAGE_SIZE, this.totalCount()));
+
+    constructor() {
+        void this.load(1);
+    }
 
     protected onSearch(event: Event): void {
-        this.search.set((event.target as HTMLInputElement).value);
-        this.page.set(0);
+        event.preventDefault();
+        this.appliedEmail.set(this.emailInput().trim());
+        void this.load(1);
     }
 
-    protected onCategory(event: Event): void {
-        this.category.set((event.target as HTMLSelectElement).value as 'all' | AuditCategory);
-        this.page.set(0);
+    protected onEmailInput(event: Event): void {
+        this.emailInput.set((event.target as HTMLInputElement).value);
     }
 
-    protected onActor(event: Event): void {
-        this.actor.set((event.target as HTMLSelectElement).value);
-        this.page.set(0);
+    protected onOutcome(event: Event): void {
+        this.outcome.set((event.target as HTMLSelectElement).value as 'all' | ApiLoginOutcome);
+        void this.load(1);
     }
 
     protected onFrom(event: Event): void {
         this.from.set((event.target as HTMLInputElement).value);
-        this.page.set(0);
+        void this.load(1);
     }
 
     protected onTo(event: Event): void {
         this.to.set((event.target as HTMLInputElement).value);
-        this.page.set(0);
+        void this.load(1);
     }
 
     protected clearFilters(): void {
-        this.search.set('');
-        this.category.set('all');
-        this.actor.set('all');
+        this.emailInput.set('');
+        this.appliedEmail.set('');
+        this.outcome.set('all');
         this.from.set('');
         this.to.set('');
-        this.page.set(0);
+        void this.load(1);
     }
 
     protected previous(): void {
-        this.page.update((page) => Math.max(0, page - 1));
+        if (this.page() > 1) void this.load(this.page() - 1);
     }
 
     protected next(): void {
-        this.page.update((page) => Math.min(this.pageCount() - 1, page + 1));
+        if (this.page() < this.totalPages()) void this.load(this.page() + 1);
     }
+
+    protected retry(): void {
+        void this.load(this.page());
     }
+
+    protected async copyId(userId: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(userId);
+        } catch {
+            this.copiedId.set(null);
+            this.statusMessage.set('Could not copy automatically. Select the ID and copy it yourself.');
+            return;
+        }
+
+        this.copiedId.set(userId);
+        this.statusMessage.set(`Copied user ID ${userId}. Paste it on the Users tab to change their role.`);
+        setTimeout(() => {
+            if (this.copiedId() === userId) this.copiedId.set(null);
+        }, 2000);
+    }
+
+    private async load(page: number): Promise<void> {
+        const from = this.from();
+        const to = this.to();
+
+        // Checked here so a typed-in range that runs backwards never reaches the API.
+        if (from && to && from > to) {
+            this.error.set('The "From" date cannot be after the "To" date.');
+            return;
+        }
+
+        const requestId = ++this.requestId;
+
+        this.loading.set(true);
+        this.error.set('');
+
+        const outcome = this.outcome();
+        const result = await this.auditService.list({
+            email: this.appliedEmail(),
+            outcome: outcome === 'all' ? undefined : outcome,
+            from: from ? localDayStartIso(from) : undefined,
+            // The API's "to" is exclusive, so the chosen day is included by sending the start of the next one.
+            to: to ? localDayStartIso(addDaysToDateKey(to, 1)) : undefined,
+            page,
+            pageSize: AUDIT_PAGE_SIZE,
+        });
+
+        if (requestId !== this.requestId) return;
+
+        this.loading.set(false);
+        this.loaded.set(true);
+
+        if (!result.ok) {
+            this.error.set(result.error.message);
+            return;
+        }
+
+        this.rows.set(result.value.items);
+        this.page.set(result.value.page);
+        this.totalPages.set(Math.max(1, result.value.totalPages));
+        this.totalCount.set(result.value.totalCount);
+    }
+}
