@@ -1,38 +1,89 @@
-import { Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { inject, Injectable, signal } from '@angular/core';
+import {
+  ApiWorkspaceRole,
+  CreateWorkspaceRequest,
+  WorkspaceResponse,
+  WorkspaceSummaryResponse,
+} from '../../shared/models/api/workspace.api';
 import { Workspace, WorkspaceRole } from '../../shared/models/workspace.model';
+import { apiUrl } from '../config/api.config';
+import { ApiResult, toApiResult } from '../http/api-result';
 import { MOCK_MEMBERS, MockMember } from './mock-tasks';
-import { MOCK_WORKSPACES } from './mock-workspaces';
 
-/** Single boundary between the UI and workspace data (mock-backed for now). */
+const ROLE_FROM_API: Record<ApiWorkspaceRole, WorkspaceRole> = {
+  Owner: 'owner',
+  Admin: 'admin',
+  Member: 'member',
+};
+
+function toWorkspace(row: WorkspaceSummaryResponse): Workspace {
+  return {
+    id: row.id,
+    name: row.name,
+    myRole: ROLE_FROM_API[row.myRole],
+    memberCount: row.memberCount,
+    isArchived: row.isArchived,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorkspaceService {
-  private readonly workspacesState = signal<readonly Workspace[]>(MOCK_WORKSPACES);
-  private nextMockId = 1;
+  private readonly http = inject(HttpClient);
+  private readonly workspacesState = signal<readonly Workspace[]>([]);
+  private readonly loadingState = signal(false);
+  private readonly loadErrorState = signal('');
 
   readonly workspaces = this.workspacesState.asReadonly();
+  readonly loading = this.loadingState.asReadonly();
+  readonly loadError = this.loadErrorState.asReadonly();
 
-  /** True while data comes from mock files rather than a real source. */
   readonly isSampleData = true;
+
+  async load(): Promise<void> {
+    this.loadingState.set(true);
+    this.loadErrorState.set('');
+
+    const result = await toApiResult(
+      this.http.get<WorkspaceSummaryResponse[]>(apiUrl('/api/workspaces'), {
+        params: { includeArchived: true },
+      }),
+    );
+
+    this.loadingState.set(false);
+
+    if (result.ok) {
+      this.workspacesState.set(result.value.map(toWorkspace));
+    } else {
+      this.loadErrorState.set(result.error.message);
+    }
+  }
 
   getById(id: string): Workspace | undefined {
     return this.workspacesState().find((workspace) => workspace.id === id);
   }
 
-  /** In-memory only and lost on reload. Replace with the API call once the endpoint exists. */
-  create(name: string): Workspace {
+  async create(name: string): Promise<ApiResult<Workspace>> {
+    const body: CreateWorkspaceRequest = { name: name.trim() };
+
+    const result = await toApiResult(
+      this.http.post<WorkspaceResponse>(apiUrl('/api/workspaces'), body),
+    );
+
+    if (!result.ok) return result;
+
     const workspace: Workspace = {
-      id: `mock-ws-${this.nextMockId++}`,
-      name: name.trim(),
+      id: result.value.id,
+      name: result.value.name,
       myRole: 'owner',
       memberCount: 1,
       isArchived: false,
     };
 
     this.workspacesState.update((list) => [workspace, ...list]);
-    return workspace;
+    return { ok: true, value: workspace };
   }
 
-  /** Owners and admins only; archived workspaces are read-only. Callers check permissions. */
   rename(id: string, name: string): boolean {
     const workspace = this.getById(id);
 
@@ -42,7 +93,6 @@ export class WorkspaceService {
     return true;
   }
 
-  /** Owners only. The backend has no way to unarchive. Callers check permissions. */
   archive(id: string): boolean {
     const workspace = this.getById(id);
 
@@ -52,7 +102,6 @@ export class WorkspaceService {
     return true;
   }
 
-  /** Called by MemberService after membership changes, to keep the cards in sync. */
   applyMembership(id: string, patch: { myRole?: WorkspaceRole; memberCount?: number }): void {
     const workspace = this.getById(id);
 
@@ -61,24 +110,20 @@ export class WorkspaceService {
     }
   }
 
-  /** Adds a workspace the user just joined by accepting an invitation. */
   join(workspace: Workspace): void {
     if (!this.getById(workspace.id)) {
       this.workspacesState.update((list) => [...list, workspace]);
     }
   }
 
-  /** Removes a workspace from the user's list after they leave it. */
   leave(id: string): void {
     this.workspacesState.update((list) => list.filter((workspace) => workspace.id !== id));
   }
 
-  /** People a task can be assigned to. Mock list until a members endpoint exists. */
   memberOptions(): readonly MockMember[] {
     return MOCK_MEMBERS;
   }
 
-  /** Display name for a member. Mock lookup until a members endpoint exists. */
   memberName(userId: string | null): string {
     if (userId === null) return 'Unassigned';
     return MOCK_MEMBERS.find((member) => member.id === userId)?.name ?? 'Teammate';

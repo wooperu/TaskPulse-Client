@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Tasks } from './tasks';
 import { TaskService } from '../../core/services/task.service';
+import { seedWorkspaces, workspaceHttpTestProviders } from '../../testing/seed-workspaces';
 
 @Component({ selector: 'x-stub', template: 'stub' }) class Stub {}
 type H = RouterTestingHarness;
@@ -16,7 +17,15 @@ const titles = (h: H) => els(h, 'ul[aria-label="My tasks"] > li').map((li) => li
 const count = (h: H) => txt(h, '[role=status]');
 
 describe('My tasks page', () => {
-  beforeEach(() => TestBed.configureTestingModule({ providers: [provideRouter([{ path: 'tasks', component: Tasks }, { path: '**', component: Stub }])] }));
+ beforeEach(async () => {
+  TestBed.configureTestingModule({
+    providers: [
+      provideRouter([{ path: 'tasks', component: Tasks }, { path: '**', component: Stub }]),
+      ...workspaceHttpTestProviders(),
+    ],
+  });
+  await seedWorkspaces();
+});
   afterEach(() => { document.body.innerHTML = ''; });
 
   it('shows only tasks assigned to me or created by me, overdue first and highlighted', async () => {

@@ -13,7 +13,6 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { TaskService } from '../../../core/services/task.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { ROLE_LABELS } from '../../../shared/models/task-display';
 
@@ -26,34 +25,38 @@ import { ROLE_LABELS } from '../../../shared/models/task-display';
 })
 export class MyWorkspaces {
   private readonly workspaceService = inject(WorkspaceService);
-  private readonly taskService = inject(TaskService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  protected readonly isSampleData = this.workspaceService.isSampleData;
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly statusMessage = signal('');
+  protected readonly submitting = signal(false);
+  protected readonly loading = this.workspaceService.loading;
+  protected readonly loadError = this.workspaceService.loadError;
 
   protected readonly form = new FormGroup({
-    // Backend workspace names: required, at most 100 characters. The \S pattern rejects blank-only names.
     workspaceName: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)],
     }),
   });
 
-  /** Active workspaces first, archived last; each with its open-task count. */
   protected readonly cards = computed(() =>
     [...this.workspaceService.workspaces()]
       .sort((a, b) => Number(a.isArchived) - Number(b.isArchived))
-      .map((workspace) => ({
-        workspace,
-        openTasks: this.taskService
-          .forWorkspace(workspace.id)
-          .filter((task) => task.status !== 'completed').length,
-      })),
+      .map((workspace) => ({ workspace })),
   );
 
-  protected onSubmit(): void {
+  constructor() {
+    void this.workspaceService.load();
+  }
+
+  protected retry(): void {
+    void this.workspaceService.load();
+  }
+
+  protected async onSubmit(): Promise<void> {
+    if (this.submitting()) return;
+
     this.statusMessage.set('');
     this.form.markAllAsTouched();
 
@@ -62,10 +65,16 @@ export class MyWorkspaces {
       return;
     }
 
-    const created = this.workspaceService.create(this.form.controls.workspaceName.value);
+    this.submitting.set(true);
+    const result = await this.workspaceService.create(this.form.controls.workspaceName.value);
+    this.submitting.set(false);
+
+    if (!result.ok) {
+      this.statusMessage.set(result.error.message);
+      return;
+    }
+
     this.form.reset();
-    this.statusMessage.set(
-      `Created "${created.name}". This is sample data and is lost when you reload.`,
-    );
+    this.statusMessage.set(`Created "${result.value.name}".`);
   }
 }
