@@ -74,3 +74,8 @@ export interface ChangeEmailRequest {
   newEmail: string;
   currentPassword: string;
 }
+
+/** Body of PUT /api/users/{userId}/role (admin only). Answer: 204 No Content. */
+export interface ChangeRoleRequest {
+  newRole: ApiUserRole;
+}

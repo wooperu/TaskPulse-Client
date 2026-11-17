@@ -1,29 +1,13 @@
-export type AuditCategory = 'user' | 'team' | 'task' | 'setting' | 'auth';
+import { ApiLoginOutcome } from './api/login-audit.api';
 
-export interface AuditLogEntry {
-    id: string;
-    actorId: string;
-    actorName: string;
-    category: AuditCategory;
-    action: string;
-    target: string;
-    details: string | null;
-    at: string;
-    ipAddress: string;
-}
-
-export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
-    user: 'Users',
-    team: 'Teams',
-    task: 'Tasks',
-    setting: 'Settings',
-    auth: 'Sign-ins',
+export const LOGIN_OUTCOME_LABELS: Record<ApiLoginOutcome, string> = {
+    Succeeded: 'Signed in',
+    InvalidCredentials: 'Wrong email or password',
+    EmailNotVerified: 'Email not verified',
 };
 
-export const AUDIT_CATEGORY_CHIP: Record<AuditCategory, string> = {
-    user: 'border-indigo-200 bg-indigo-50 text-indigo-800',
-    team: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    task: 'border-amber-200 bg-amber-50 text-amber-800',
-    setting: 'border-zinc-300 bg-zinc-100 text-zinc-700',
-    auth: 'border-zinc-200 bg-zinc-50 text-zinc-700',
+export const LOGIN_OUTCOME_CHIP: Record<ApiLoginOutcome, string> = {
+    Succeeded: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    InvalidCredentials: 'border-red-200 bg-red-50 text-red-800',
+    EmailNotVerified: 'border-amber-200 bg-amber-50 text-amber-800',
 };

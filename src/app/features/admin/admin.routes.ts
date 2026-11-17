@@ -32,7 +32,7 @@ export const ADMIN_ROUTES: Routes = [
             },
             {
                 path: 'audit-logs',
-                title: 'Audit logs | TaskPulse',
+                title: 'Login activity | TaskPulse',
                 loadComponent: () =>
                     import('./admin-audit-logs/admin-audit-logs').then((m) => m.AdminAuditLogs),
             },
