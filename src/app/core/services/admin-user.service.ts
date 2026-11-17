@@ -1,99 +1,46 @@
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { UserRole } from '../../shared/models/current-user.model';
-import { AdminUser, AdminUserDraft } from '../../shared/models/admin-user.model';
+import { ApiUserRole, ChangeRoleRequest } from '../../shared/models/api/auth.api';
+import { AdminUser } from '../../shared/models/admin-user.model';
+import { apiUrl } from '../config/api.config';
+import { ApiResult, toApiResult } from '../http/api-result';
 import { CurrentUserService } from './current-user.service';
-import { ActionResult } from './member.service';
 import { MOCK_ADMIN_USERS } from './mock-admin-users';
 
-const fail = (reason: string): ActionResult => ({ ok: false, reason });
-const OK: ActionResult = { ok: true };
+const API_ROLES: Record<UserRole, ApiUserRole> = {
+    admin: 'Admin',
+    manager: 'Manager',
+    employee: 'Employee',
+};
 
 @Injectable({ providedIn: 'root' })
 export class AdminUserService {
+    private readonly http = inject(HttpClient);
     private readonly currentUser = inject(CurrentUserService);
 
+    /**
+     * SAMPLE DATA, not from the API. The backend has no "list users" endpoint, so the
+     * Admin Users page no longer reads this. Admin Teams and Admin Tasks still do until
+     * they are connected. Delete it together with mock-admin-users.ts.
+     */
     private readonly usersState = signal<readonly AdminUser[]>(MOCK_ADMIN_USERS);
-    private nextMockId = 1;
-
-    readonly isSampleData = true;
     readonly users = this.usersState.asReadonly();
 
     get currentUserId(): string {
         return this.currentUser.user().id;
     }
 
-    create(draft: AdminUserDraft): ActionResult {
-        const email = draft.email.trim();
-        if (this.emailTaken(email)) return fail('A user with that email already exist.');
+    /**
+     * PUT /api/users/{userId}/role (admin only, 204 on success).
+     * Failures worth knowing: 404 user not found, 409 user already has that role,
+     * 400 invalid id or role, 403 caller is not an admin.
+     */
+    changeRole(userId: string, role: UserRole): Promise<ApiResult> {
+        const body: ChangeRoleRequest = { newRole: API_ROLES[role] };
 
-        const user: AdminUser = {
-            id: `mock-user-${this.nextMockId++}`,
-            firstName: draft.firstName.trim(),
-            lastName: draft.lastName.trim(),
-            email,
-            role: draft.role,
-            isActive: true,
-            isEmailVerified: false, 
-            createdAt: new Date().toISOString(),
-        };
-        this.usersState.update((users) => [user, ...users]);
-        return OK;
-    }   
-
-    update(id: string, changes: Pick<AdminUserDraft, 'firstName' | 'lastName' | 'email'>): ActionResult {
-        const email = changes.email.trim();
-        if (this.emailTaken(email, id)) return fail('A user with that email already exists.');
-
-        this.patch(id, {
-            firstName: changes.firstName.trim(),
-            lastName: changes.lastName.trim(),
-            email,
-        });
-        return OK;
-    }
-
-    changeRole(id: string, role: UserRole): ActionResult {
-        const user = this.find(id);
-        if (!user) return fail('That user no longer exists.');
-        if (id === this.currentUserId) return fail('You cannot change your own role.');
-        if (user.role === 'admin' && this.activeAdminCount() <= 1) {
-            return fail ('At least one activr admin is required.'); 
-        }
-
-        this.patch(id, { role });
-        return OK;
-    }
-
-    setActive(id: string, isActive: boolean): ActionResult {
-        const user = this.find(id);
-        if (!user) return fail('That user no longer exists.');
-        if (!isActive && id === this.currentUserId) return fail('You cannot deactivate your own account.');
-        if (!isActive && user.role === 'admin' && this.activeAdminCount() <= 1) {
-        return fail('At least one active admin is required.');
-    }
-
-        this.patch(id, { isActive });
-        return OK;
-    }
-
-    private find(id: string): AdminUser | undefined {
-        return this.usersState().find((user) => user.id === id);
-    }
-
-    private patch(id: string, changes: Partial<AdminUser>): void {
-        this.usersState.update((users) => 
-            users.map((user) => (user.id === id ? { ...user, ...changes } : user)),
-        );
-    }
-
-    private activeAdminCount(): number {
-        return this.usersState().filter((user) => user.role === 'admin' && user.isActive).length;
-    }
-
-    private emailTaken(email: string, exceptId?: string): boolean {
-        const wanted = email.toLowerCase();
-        return this.usersState().some(
-            (user) => user.id !== exceptId && user.email.toLowerCase() === wanted,
+        return toApiResult(
+            this.http.put<void>(apiUrl(`/api/users/${encodeURIComponent(userId)}/role`), body),
         );
     }
 }

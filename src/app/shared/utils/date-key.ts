@@ -18,3 +18,9 @@ export function addDaysToDateKey(key: string, days: number): string {
   const [year, month, day] = key.split('-').map(Number);
   return toLocalDateKey(new Date(year, month - 1, day + days));
 }
+
+/** The instant a local 'YYYY-MM-DD' day starts, as an ISO string in UTC (what the API's date filters expect). */
+export function localDayStartIso(key: string): string {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day).toISOString();
+}
