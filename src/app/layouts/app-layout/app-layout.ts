@@ -17,12 +17,9 @@ import { UserMenu } from '../../shared/components/user-menu/user-menu';
 export class AppLayout {
   protected readonly isAdmin = inject(CurrentUserService).isAdmin;
 
-  protected readonly adminLinks = [
+    protected readonly adminLinks = [
     { label: 'Overview', path: '/admin', icon: '◫' },
     { label: 'Users', path: '/admin/users', icon: '☺' },
-    { label: 'All tasks', path: '/admin/tasks', icon: '☷' },
     { label: 'Login activity', path: '/admin/audit-logs', icon: '⏱' },
-    { label: 'Reports', path: '/admin/reports', icon: '▤' },
-    { label: 'Settings', path: '/admin/settings', icon: '⚙' },
   ];
 }

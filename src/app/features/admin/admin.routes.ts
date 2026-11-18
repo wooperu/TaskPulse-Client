@@ -8,8 +8,8 @@ export const ADMIN_ROUTES: Routes = [
         children: [
             {
                 path: '',
-                title: 'Admin dashbord | TaskPulse',
-                loadComponent: () => 
+                title: 'Admin dashboard | TaskPulse',
+                loadComponent: () =>
                     import('./admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
             },
             {
@@ -19,28 +19,10 @@ export const ADMIN_ROUTES: Routes = [
                     import('./admin-users/admin-users').then((m) => m.AdminUsers),
             },
             {
-                path: 'tasks',
-                title: 'All tasks | TaskPulse',
-                loadComponent: () =>
-                    import('./admin-tasks/admin-tasks').then((m) => m.AdminTasks),
-            },
-            {
                 path: 'audit-logs',
                 title: 'Login activity | TaskPulse',
                 loadComponent: () =>
                     import('./admin-audit-logs/admin-audit-logs').then((m) => m.AdminAuditLogs),
-            },
-            {
-                path: 'settings',
-                title: 'System settings | TaskPulse',
-                loadComponent: () =>
-                    import('./admin-settings/admin-settings').then((m) => m.AdminSettings),
-            },
-            {
-                path: 'reports',
-                title: 'Reports | TaskPulse',
-                loadComponent: () =>
-                    import('./admin-reports/admin-reports').then((m) => m.AdminReports),
             },
         ],
     },
