@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import {
   ApiWorkspaceRole,
   CreateWorkspaceRequest,
@@ -14,23 +14,22 @@ import { apiUrl } from '../config/api.config';
 import { ApiResult, toApiResult } from '../http/api-result';
 import { MOCK_MEMBERS, MockMember } from './mock-tasks';
 
-/** idle: never loaded (or signed out). loading: a request is running. ready: the list is current. error: the last load failed. */
-export type WorkspaceLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
-
-const ROLES: Readonly<Record<ApiWorkspaceRole, WorkspaceRole>> = {
+const ROLE_FROM_API: Record<ApiWorkspaceRole, WorkspaceRole> = {
   Owner: 'owner',
   Admin: 'admin',
   Member: 'member',
 };
 
-/** Maps a row of GET /api/workspaces to the UI model. */
-export function toWorkspace(summary: WorkspaceSummaryResponse): Workspace {
+/** idle: never loaded (or signed out). loading: a request is running. ready: the list is current. error: the last load failed. */
+export type WorkspaceLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+export function toWorkspace(row: WorkspaceSummaryResponse): Workspace {
   return {
-    id: summary.id,
-    name: summary.name,
-    myRole: ROLES[summary.myRole] ?? 'member',
-    memberCount: summary.memberCount,
-    isArchived: summary.isArchived,
+    id: row.id,
+    name: row.name,
+    myRole: ROLE_FROM_API[row.myRole] ?? 'member',
+    memberCount: row.memberCount,
+    isArchived: row.isArchived,
   };
 }
 
@@ -45,44 +44,65 @@ export class WorkspaceService {
   private readonly http = inject(HttpClient);
   private readonly workspacesState = signal<readonly Workspace[]>([]);
   private readonly statusState = signal<WorkspaceLoadStatus>('idle');
+  private readonly loadErrorState = signal('');
 
   /** The load in flight, shared by everyone who asks while it runs. */
-  private loading: Promise<ApiResult<readonly Workspace[]>> | null = null;
+  private loadInFlight: Promise<void> | null = null;
 
   /** Bumped by clear(), so a load that finishes after a sign-out can't fill the next user's list. */
   private generation = 0;
 
   readonly workspaces = this.workspacesState.asReadonly();
   readonly status = this.statusState.asReadonly();
+  readonly loading = computed(() => this.statusState() === 'loading');
+  readonly loadError = this.loadErrorState.asReadonly();
 
-  getById(id: string): Workspace | undefined {
-    return this.workspacesState().find((workspace) => workspace.id === id);
-  }
-
-  /** Loads the list from GET /api/workspaces (archived ones included). Never throws. */
-  load(): Promise<ApiResult<readonly Workspace[]>> {
-    this.loading ??= this.fetchAll().finally(() => {
-      this.loading = null;
+  /** Loads the list from GET /api/workspaces (archived ones included). Never throws; see loadError. */
+  load(): Promise<void> {
+    this.loadInFlight ??= this.fetchAll().finally(() => {
+      this.loadInFlight = null;
     });
 
-    return this.loading;
+    return this.loadInFlight;
   }
 
   /** Resolves at once when the list is current; otherwise loads it. */
-  ensureLoaded(): Promise<ApiResult<readonly Workspace[]>> {
-    if (this.statusState() === 'ready') {
-      return Promise.resolve({ ok: true, value: this.workspacesState() });
-    }
-
-    return this.load();
+  ensureLoaded(): Promise<void> {
+    return this.statusState() === 'ready' ? Promise.resolve() : this.load();
   }
 
   /** Forgets everything. Called when the session ends, so nobody sees the previous user's workspaces. */
   clear(): void {
     this.generation++;
-    this.loading = null;
+    this.loadInFlight = null;
     this.workspacesState.set([]);
+    this.loadErrorState.set('');
     this.statusState.set('idle');
+  }
+
+  getById(id: string): Workspace | undefined {
+    return this.workspacesState().find((workspace) => workspace.id === id);
+  }
+
+  async create(name: string): Promise<ApiResult<Workspace>> {
+    const body: CreateWorkspaceRequest = { name: name.trim() };
+
+    const result = await toApiResult(
+      this.http.post<WorkspaceResponse>(apiUrl('/api/workspaces'), body),
+    );
+
+    if (!result.ok) return result;
+
+    const workspace: Workspace = {
+      id: result.value.id,
+      name: result.value.name,
+      myRole: 'owner',
+      memberCount: 1,
+      isArchived: false,
+    };
+
+    this.workspacesState.update((list) => [workspace, ...list]);
+    return { ok: true, value: workspace };
   }
 
   /**
@@ -98,36 +118,17 @@ export class WorkspaceService {
       userId: member.userId,
       name: `${member.firstName} ${member.lastName}`.trim(),
       email: member.email,
-      role: ROLES[member.role] ?? 'member',
+      role: ROLE_FROM_API[member.role] ?? 'member',
       joinedAt: member.joinedAtUtc,
     }));
 
     this.patch(id, {
-      myRole: ROLES[result.value.myRole] ?? 'member',
+      myRole: ROLE_FROM_API[result.value.myRole] ?? 'member',
       memberCount: members.length,
       isArchived: result.value.isArchived,
     });
 
     return { ok: true, value: members };
-  }
-
-  /** Creates a workspace (POST /api/workspaces). The creator is its owner. */
-  async create(name: string): Promise<ApiResult<Workspace>> {
-    const body: CreateWorkspaceRequest = { name: name.trim() };
-    const result = await toApiResult(this.http.post<WorkspaceResponse>(apiUrl('/api/workspaces'), body));
-
-    if (!result.ok) return result;
-
-    const workspace: Workspace = {
-      id: result.value.id,
-      name: result.value.name,
-      myRole: 'owner',
-      memberCount: 1,
-      isArchived: result.value.isArchived,
-    };
-
-    this.workspacesState.update((list) => [workspace, ...list]);
-    return { ok: true, value: workspace };
   }
 
   /** Owners and admins only, and not on an archived workspace. The API enforces it (PUT /api/workspaces/{id}/name). */
@@ -150,7 +151,6 @@ export class WorkspaceService {
     return result;
   }
 
-  /** Called by MemberService after membership changes, to keep the cards in sync. */
   applyMembership(id: string, patch: { myRole?: WorkspaceRole; memberCount?: number }): void {
     const workspace = this.getById(id);
 
@@ -159,24 +159,20 @@ export class WorkspaceService {
     }
   }
 
-  /** Adds a workspace the user just joined by accepting an invitation. */
   join(workspace: Workspace): void {
     if (!this.getById(workspace.id)) {
       this.workspacesState.update((list) => [...list, workspace]);
     }
   }
 
-  /** Removes a workspace from the user's list after they leave it. */
   leave(id: string): void {
     this.workspacesState.update((list) => list.filter((workspace) => workspace.id !== id));
   }
 
-  /** People a task can be assigned to. Mock list until a members endpoint exists. */
   memberOptions(): readonly MockMember[] {
     return MOCK_MEMBERS;
   }
 
-  /** Display name for a member. Mock lookup until a members endpoint exists. */
   memberName(userId: string | null): string {
     if (userId === null) return 'Unassigned';
     return MOCK_MEMBERS.find((member) => member.id === userId)?.name ?? 'Teammate';
@@ -188,28 +184,27 @@ export class WorkspaceService {
     if (workspace) this.replace({ ...workspace, ...changes });
   }
 
-  private async fetchAll(): Promise<ApiResult<readonly Workspace[]>> {
+  private async fetchAll(): Promise<void> {
     const generation = this.generation;
 
     this.statusState.set('loading');
+    this.loadErrorState.set('');
 
     const result = await toApiResult(
-      this.http.get<WorkspaceSummaryResponse[]>(apiUrl('/api/workspaces?includeArchived=true')),
+      this.http.get<WorkspaceSummaryResponse[]>(apiUrl('/api/workspaces'), {
+        params: { includeArchived: true },
+      }),
     );
 
-    if (!result.ok) {
-      if (generation === this.generation) this.statusState.set('error');
-      return result;
-    }
+    if (generation !== this.generation) return;
 
-    const list = result.value.map(toWorkspace);
-
-    if (generation === this.generation) {
-      this.workspacesState.set(list);
+    if (result.ok) {
+      this.workspacesState.set(result.value.map(toWorkspace));
       this.statusState.set('ready');
+    } else {
+      this.loadErrorState.set(result.error.message);
+      this.statusState.set('error');
     }
-
-    return { ok: true, value: list };
   }
 
   private replace(workspace: Workspace): void {

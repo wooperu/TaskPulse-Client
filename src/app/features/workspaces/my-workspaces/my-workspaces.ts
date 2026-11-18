@@ -28,43 +28,36 @@ export class MyWorkspaces {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly roleLabels = ROLE_LABELS;
-  protected readonly status = this.workspaceService.status;
   protected readonly statusMessage = signal('');
-  protected readonly errorMessage = signal('');
-  protected readonly loadError = signal('');
   protected readonly submitting = signal(false);
+  protected readonly loading = this.workspaceService.loading;
+  protected readonly loadError = this.workspaceService.loadError;
 
   protected readonly form = new FormGroup({
-    // Backend workspace names: required, at most 100 characters. The \S pattern rejects blank-only names.
     workspaceName: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)],
     }),
   });
 
-  /** Active workspaces first, archived last. */
-  protected readonly sortedWorkspaces = computed(() =>
-    [...this.workspaceService.workspaces()].sort((a, b) => Number(a.isArchived) - Number(b.isArchived)),
+  protected readonly cards = computed(() =>
+    [...this.workspaceService.workspaces()]
+      .sort((a, b) => Number(a.isArchived) - Number(b.isArchived))
+      .map((workspace) => ({ workspace })),
   );
 
   constructor() {
-    // Refresh on every visit: member counts and roles can change elsewhere. The cached list shows meanwhile.
-    void this.reload();
+    void this.workspaceService.load();
   }
 
-  protected async reload(): Promise<void> {
-    this.loadError.set('');
-
-    const result = await this.workspaceService.load();
-
-    if (!result.ok) this.loadError.set(result.error.message);
+  protected retry(): void {
+    void this.workspaceService.load();
   }
 
   protected async onSubmit(): Promise<void> {
     if (this.submitting()) return;
 
     this.statusMessage.set('');
-    this.errorMessage.set('');
     this.form.markAllAsTouched();
 
     if (this.form.invalid) {
@@ -77,7 +70,7 @@ export class MyWorkspaces {
     this.submitting.set(false);
 
     if (!result.ok) {
-      this.errorMessage.set(result.error.message);
+      this.statusMessage.set(result.error.message);
       return;
     }
 
