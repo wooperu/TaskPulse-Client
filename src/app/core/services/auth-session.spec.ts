@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiUrl } from '../config/api.config';
+import { WorkspaceService } from './workspace.service';
 import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
 
@@ -167,6 +168,17 @@ describe('AuthService session handling', () => {
 
       expect(navigate).toHaveBeenCalledWith(['/login'], { state: { notice: 'Your password was changed.' } });
     });
+  });
+
+  it('signOutLocally also clears the cached workspaces, so the next user never sees them', () => {
+    const workspaces = TestBed.inject(WorkspaceService);
+    workspaces.join({ id: 'w-1', name: 'Marketing', myRole: 'owner', memberCount: 1, isArchived: false });
+    tokens.set(OLD_TOKENS);
+
+    auth.signOutLocally();
+
+    expect(workspaces.workspaces()).toEqual([]);
+    expect(tokens.get()).toBeNull();
   });
 
   it('expireSession clears the session', () => {

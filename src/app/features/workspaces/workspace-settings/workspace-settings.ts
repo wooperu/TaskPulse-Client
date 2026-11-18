@@ -46,9 +46,12 @@ export class WorkspaceSettings {
     { initialValue: this.route.snapshot.paramMap.get('workspaceId') ?? '' },
   );
 
-  protected readonly isSampleData = this.workspaceService.isSampleData;
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly statusMessage = signal('');
+  protected readonly errorMessage = signal('');
+
+  /** True while a request runs, so rename and archive can't be sent twice. */
+  protected readonly busy = signal(false);
   protected readonly confirmingArchive = signal(false);
 
   protected readonly workspace = computed(() => this.workspaceService.getById(this.workspaceId()));
@@ -86,8 +89,11 @@ export class WorkspaceSettings {
     return null;
   }
 
-  protected rename(): void {
+  protected async rename(): Promise<void> {
+    if (this.busy()) return;
+
     this.statusMessage.set('');
+    this.errorMessage.set('');
     this.renameForm.markAllAsTouched();
 
     const workspace = this.workspace();
@@ -99,10 +105,17 @@ export class WorkspaceSettings {
 
     const name = this.renameForm.controls.workspaceName.value.trim();
 
-    if (this.workspaceService.rename(workspace.id, name)) {
-      this.renameForm.controls.workspaceName.setValue(name);
-      this.statusMessage.set(`Workspace renamed to "${name}". This is sample data and is lost when you reload.`);
+    this.busy.set(true);
+    const result = await this.workspaceService.rename(workspace.id, name);
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.errorMessage.set(result.error.message);
+      return;
     }
+
+    this.renameForm.controls.workspaceName.setValue(name);
+    this.statusMessage.set(`Workspace renamed to "${name}".`);
   }
 
   protected askToArchive(): void {
@@ -117,15 +130,26 @@ export class WorkspaceSettings {
     this.focusAfterRender('#archive-button');
   }
 
-  protected archive(): void {
+  protected async archive(): Promise<void> {
     const workspace = this.workspace();
-    this.confirmingArchive.set(false);
 
-    if (workspace && this.workspaceService.archive(workspace.id)) {
+    if (!workspace || this.busy()) return;
+
+    this.confirmingArchive.set(false);
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+
+    this.busy.set(true);
+    const result = await this.workspaceService.archive(workspace.id);
+    this.busy.set(false);
+
+    if (result.ok) {
       this.statusMessage.set(`"${workspace.name}" is archived and now read-only.`);
+    } else {
+      this.errorMessage.set(result.error.message);
     }
 
-    // The archive controls disappear, so land on the page heading.
+    // The archive controls disappear on success, so land on the page heading either way.
     this.focusAfterRender('#settings-heading');
   }
 

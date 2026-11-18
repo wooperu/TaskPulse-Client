@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { adminGuard } from './core/guards/admin.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import { workspacesReadyGuard } from './core/guards/workspaces-ready.guard';
 
 export const routes: Routes = [
   {
@@ -53,6 +54,7 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
+        canActivate: [workspacesReadyGuard],
         title: 'Dashboard | TaskPulse',
         loadComponent: () =>
           import('./features/dashboard/dashboard')
@@ -67,6 +69,7 @@ export const routes: Routes = [
       },
       {
         path: 'workspaces/:workspaceId/documents',
+        canActivate: [workspacesReadyGuard],
         title: 'Documents | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/documents/documents')
@@ -74,12 +77,14 @@ export const routes: Routes = [
       },
       {
         path: 'workspaces/:workspaceId',
+        canActivate: [workspacesReadyGuard],
         title: 'Workspace | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/workspace-board/workspace-board')
             .then(m => m.WorkspaceBoard),
       },{
         path: 'workspaces/:workspaceId/tasks/new',
+        canActivate: [workspacesReadyGuard],
         title: 'New task | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/task-edit/task-edit')
@@ -87,6 +92,7 @@ export const routes: Routes = [
       },
       {
         path: 'workspaces/:workspaceId/tasks/:taskId',
+        canActivate: [workspacesReadyGuard],
         title: 'Task | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/task-detail/task-detail')
@@ -94,6 +100,7 @@ export const routes: Routes = [
       },
       {
         path: 'workspaces/:workspaceId/tasks/:taskId/edit',
+        canActivate: [workspacesReadyGuard],
         title: 'Edit task | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/task-edit/task-edit')
@@ -101,6 +108,7 @@ export const routes: Routes = [
       },
       {
         path: 'workspaces/:workspaceId/members',
+        canActivate: [workspacesReadyGuard],
         title: 'Members | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/members/members')
@@ -108,6 +116,7 @@ export const routes: Routes = [
       },
       {
         path: 'workspaces/:workspaceId/settings',
+        canActivate: [workspacesReadyGuard],
         title: 'Workspace settings | TaskPulse',
         loadComponent: () =>
           import('./features/workspaces/workspace-settings/workspace-settings')
@@ -136,6 +145,7 @@ export const routes: Routes = [
       },
       {
         path: 'tasks',
+        canActivate: [workspacesReadyGuard],
         title: 'My Tasks | TaskPulse',
         loadComponent: () =>
           import('./features/tasks/tasks')

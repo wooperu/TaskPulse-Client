@@ -1,11 +1,12 @@
-import { TaskPriority, TaskStatus } from './task.model';
+import { TaskDisplayStatus, TaskPriority } from './task.model';
 import { WorkspaceRole } from './workspace.model';
 
 /** Labels and chip styles shared by task and workspace views. Full class names so Tailwind finds them. */
-export const STATUS_LABELS: Record<TaskStatus, string> = {
+export const STATUS_LABELS: Record<TaskDisplayStatus, string> = {
   pending: 'Pending',
   ongoing: 'Ongoing',
   completed: 'Completed',
+  overdue: 'Overdue',
 };
 
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
@@ -21,10 +22,11 @@ export const ROLE_LABELS: Record<WorkspaceRole, string> = {
   member: 'Member',
 };
 
-export const STATUS_CHIP: Record<TaskStatus, string> = {
+export const STATUS_CHIP: Record<TaskDisplayStatus, string> = {
   pending: 'border-zinc-200 bg-zinc-50 text-zinc-700',
   ongoing: 'border-indigo-200 bg-indigo-50 text-indigo-800',
   completed: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  overdue: 'border-red-200 bg-red-50 text-red-700',
 };
 
 export const PRIORITY_CHIP: Record<TaskPriority, string> = {

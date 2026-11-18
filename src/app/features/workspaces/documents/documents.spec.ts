@@ -6,13 +6,32 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { DOCX_MIME_TYPE } from '../../../core/config/google-drive.config';
 import { DocumentWorkspaceService } from '../../../core/services/document-workspace.service';
 import { GoogleDriveAuthService } from '../../../core/services/google-drive-auth.service';
+import { MOCK_WORKSPACES } from '../../../core/services/mock-workspaces';
 import { WorkspaceService } from '../../../core/services/workspace.service';
+import { Workspace } from '../../../shared/models/workspace.model';
 import { WorkspaceDocument } from '../../../shared/models/workspace-document.model';
 import {
   GoogleDriveUploadError,
   GoogleDriveUploadService,
 } from '../../../core/services/google-drive-upload.service';
 import { Documents } from './documents';
+
+/**
+ * Stands in for WorkspaceService, which now loads the real list from the API. These tests need
+ * known workspaces (including an archived one) and a synchronous archive().
+ */
+class SeededWorkspaceService {
+  private readonly list = signal<readonly Workspace[]>(MOCK_WORKSPACES);
+
+  getById(id: string): Workspace | undefined {
+    return this.list().find((workspace) => workspace.id === id);
+  }
+
+  archive(id: string): Promise<{ ok: true; value: undefined }> {
+    this.list.update((all) => all.map((workspace) => (workspace.id === id ? { ...workspace, isArchived: true } : workspace)));
+    return Promise.resolve({ ok: true, value: undefined });
+  }
+}
 
 const FILE_ID = 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890_-';
 
@@ -57,6 +76,7 @@ describe('Documents upload workflow', () => {
       imports: [Documents],
       providers: [
         provideRouter([]),
+        { provide: WorkspaceService, useClass: SeededWorkspaceService },
         {
           provide: ActivatedRoute,
           useValue: { paramMap: params.asObservable() },
@@ -223,6 +243,7 @@ describe('Documents route reuse', () => {
       imports: [Documents],
       providers: [
         provideRouter([{ path: 'workspaces/:workspaceId/documents', component: Documents }]),
+        { provide: WorkspaceService, useClass: SeededWorkspaceService },
       ],
     }).compileComponents();
     const service = TestBed.inject(DocumentWorkspaceService);
@@ -276,6 +297,7 @@ describe('Archived document mode', () => {
       imports: [Documents],
       providers: [
         provideRouter([]),
+        { provide: WorkspaceService, useClass: SeededWorkspaceService },
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
         { provide: GoogleDriveUploadService, useValue: { uploadDocx } },
         {

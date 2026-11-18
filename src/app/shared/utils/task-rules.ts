@@ -1,7 +1,15 @@
 import { Task } from '../models/task.model';
 
-/** `today` is a local 'YYYY-MM-DD' key; date-only strings compare correctly as text. */
-export function isOverdue(task: Task, today: string): boolean {
+/**
+ * A task from the API is overdue exactly when the API says so (status 'overdue').
+ *
+ * `today` (a local 'YYYY-MM-DD' key) keeps the old date rule for the pages still on sample data
+ * (My Tasks, the dashboard); drop it when they are connected.
+ */
+export function isOverdue(task: Task, today?: string): boolean {
+  if (task.status === 'overdue') return true;
+  if (today === undefined) return false;
+
   return task.status !== 'completed' && task.dueDate !== null && task.dueDate < today;
 }
 
