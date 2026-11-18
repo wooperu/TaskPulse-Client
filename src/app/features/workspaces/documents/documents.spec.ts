@@ -246,11 +246,7 @@ describe('Documents route reuse', () => {
       imports: [Documents],
       providers: [
         provideRouter([{ path: 'workspaces/:workspaceId/documents', component: Documents }]),
-<<<<<<< HEAD
         { provide: WorkspaceService, useClass: SeededWorkspaceService },
-=======
-        ...workspaceHttpTestProviders(),
->>>>>>> 32d31b56adb1edf176607cb3e6ba381a6e5af339
       ],
     }).compileComponents();
     await seedWorkspaces();
