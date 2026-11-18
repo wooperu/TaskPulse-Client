@@ -1,9 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { provideRouter, Router } from '@angular/router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiUrl } from '../config/api.config';
+import { WorkspaceService } from './workspace.service';
 import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
 
@@ -152,6 +153,32 @@ describe('AuthService session handling', () => {
 
       http.expectNone(apiUrl('/api/auth/logout'));
     });
+  });
+
+  describe('signOutAndRedirect', () => {
+    it('clears the session first, then opens the login page with the notice', async () => {
+      tokens.set(OLD_TOKENS);
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockImplementation(async () => {
+        // The guest guard would bounce a signed-in visitor away from /login, so the session must be gone by now.
+        expect(tokens.get()).toBeNull();
+        return true;
+      });
+
+      await auth.signOutAndRedirect('Your password was changed.');
+
+      expect(navigate).toHaveBeenCalledWith(['/login'], { state: { notice: 'Your password was changed.' } });
+    });
+  });
+
+  it('signOutLocally also clears the cached workspaces, so the next user never sees them', () => {
+    const workspaces = TestBed.inject(WorkspaceService);
+    workspaces.join({ id: 'w-1', name: 'Marketing', myRole: 'owner', memberCount: 1, isArchived: false });
+    tokens.set(OLD_TOKENS);
+
+    auth.signOutLocally();
+
+    expect(workspaces.workspaces()).toEqual([]);
+    expect(tokens.get()).toBeNull();
   });
 
   it('expireSession clears the session', () => {

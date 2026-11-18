@@ -1,4 +1,11 @@
+/** A stored status. The admin screens and their sample data only know these three. */
 export type TaskStatus = 'pending' | 'ongoing' | 'completed';
+
+/**
+ * The status the API reports: a stored status, or 'overdue' for a Pending or Ongoing task past its
+ * due date. The API does not say which of the two an overdue task was, so it has no known stored status.
+ */
+export type TaskDisplayStatus = TaskStatus | 'overdue';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 /**
@@ -26,7 +33,7 @@ export interface Task {
   workspaceId: string;
   title: string;
   description: string;
-  status: TaskStatus;
+  status: TaskDisplayStatus;
   priority: TaskPriority;
   assigneeId: string | null;
   /** Date-only 'YYYY-MM-DD' (no time zone), or null when there is no due date. */
@@ -56,4 +63,6 @@ export interface TaskComment {
   text: string;
   /** ISO 8601 timestamp. */
   createdAt: string;
+  /** Display name from the API. Absent on sample data, where names come from the member list. */
+  authorName?: string;
 }

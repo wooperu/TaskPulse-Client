@@ -3,6 +3,8 @@ import { inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
+  ChangeEmailRequest,
+  ChangePasswordRequest,
   ForgotPasswordRequest,
   LoginRequest,
   MessageResponse,
@@ -17,6 +19,7 @@ import { apiUrl } from '../config/api.config';
 import { parseApiError } from '../http/api-error';
 import { ApiResult, toApiResult } from '../http/api-result';
 import { CurrentUserService } from './current-user.service';
+import { WorkspaceService } from './workspace.service';
 import { AuthTokens, TokenStorage } from './token-storage.service';
 
 export type LoginFailureReason =
@@ -77,6 +80,7 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly tokens = inject(TokenStorage);
   private readonly currentUser = inject(CurrentUserService);
+  private readonly workspaces = inject(WorkspaceService);
 
   /** The refresh call in flight, shared by everyone who needs it (see refreshSession). */
   private refreshing: Promise<RefreshResult> | null = null;
@@ -170,6 +174,43 @@ export class AuthService {
     return this.refreshing;
   }
 
+  /**
+   * Changes the password. The API then revokes every refresh token, so the caller must follow a
+   * success with signOutAndRedirect. A wrong current password is a 400, not a 401.
+   */
+  changePassword(currentPassword: string, newPassword: string): Promise<ApiResult> {
+    const body: ChangePasswordRequest = { currentPassword, newPassword };
+
+    return toApiResult(this.http.post<void>(apiUrl('/api/auth/change-password'), body));
+  }
+
+  /**
+   * Changes the email address. The API marks the new address unverified, sends it a verification link
+   * and revokes every refresh token, so the caller must follow a success with signOutAndRedirect.
+   */
+  changeEmail(newEmail: string, currentPassword: string): Promise<ApiResult> {
+    const body: ChangeEmailRequest = { newEmail: newEmail.trim(), currentPassword };
+
+    return toApiResult(this.http.put<void>(apiUrl('/api/users/change-email'), body));
+  }
+
+  /**
+   * Revokes every refresh token of the user on the server, on every device. The access tokens already
+   * issued keep working until they expire, so the caller follows a success with signOutAndRedirect.
+   */
+  logoutAll(): Promise<ApiResult> {
+    return toApiResult(this.http.post<void>(apiUrl('/api/auth/logout-all'), null));
+  }
+
+  /**
+   * Clears the session and opens the login page with a notice. The session is cleared first: a
+   * signed-in visitor would be sent away from the login page by the guest guard.
+   */
+  async signOutAndRedirect(notice: string): Promise<void> {
+    this.signOutLocally();
+    await this.router.navigate(['/login'], { state: { notice } });
+  }
+
   /** Ends the session on the server (best effort), clears local state. Never throws. */
   async logout(): Promise<void> {
     const refreshToken = this.tokens.refreshToken();
@@ -197,10 +238,11 @@ export class AuthService {
     }
   }
 
-  /** Clears the in-memory tokens and the signed-in user. Does not call the API. */
+  /** Clears the in-memory tokens, the signed-in user and their cached data. Does not call the API. */
   signOutLocally(): void {
     this.tokens.clear();
     this.currentUser.clear();
+    this.workspaces.clear();
   }
 
   private async requestNewTokens(): Promise<RefreshResult> {

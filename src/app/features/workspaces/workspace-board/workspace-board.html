@@ -46,15 +46,6 @@
       </p>
     </header>
 
-    @if (isSampleData) {
-      <p
-        role="note"
-        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-      >
-        Showing sample data. Tasks are not connected to your account yet.
-      </p>
-    }
-
     @if (ws.isArchived) {
       <p
         role="note"
@@ -91,7 +82,6 @@
         >
           <option value="all">Everyone</option>
           <option value="me">Assigned to me</option>
-          <option value="unassigned">Unassigned</option>
         </select>
       </div>
 
@@ -106,20 +96,46 @@
       }
     </div>
 
+    @if (errorMessage()) {
+      <div
+        role="alert"
+        class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+      >
+        <span>{{ errorMessage() }}</span>
+        <button
+          type="button"
+          (click)="reload()"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+        >
+          Try again
+        </button>
+      </div>
+    }
+
     <p role="status" class="text-sm text-zinc-500">
-      Showing {{ rows().length }} of {{ total() }} {{ total() === 1 ? 'task' : 'tasks' }}
+      @if (loading()) {
+        Loading tasks…
+      } @else if (!errorMessage() || rows().length > 0) {
+        Showing {{ rows().length }} of {{ totalCount() }} {{ totalCount() === 1 ? 'task' : 'tasks' }}
+      }
     </p>
 
-    @if (total() === 0) {
-      <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-        <h2 class="text-base font-medium">No tasks in this workspace yet</h2>
-        <p class="mt-1 text-sm text-zinc-500">Tasks you create here will show up in this list.</p>
-      </section>
+    @if (loading()) {
+      <!-- The status line above announces the loading state. -->
     } @else if (rows().length === 0) {
-      <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
-        <h2 class="text-base font-medium">No tasks match these filters</h2>
-        <p class="mt-1 text-sm text-zinc-500">Try a different status or assignee.</p>
-      </section>
+      @if (errorMessage()) {
+        <!-- The alert above explains why nothing is listed. -->
+      } @else if (hasActiveFilters()) {
+        <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
+          <h2 class="text-base font-medium">No tasks match these filters</h2>
+          <p class="mt-1 text-sm text-zinc-500">Try a different status or assignee.</p>
+        </section>
+      } @else {
+        <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+          <h2 class="text-base font-medium">No tasks in this workspace yet</h2>
+          <p class="mt-1 text-sm text-zinc-500">Tasks you create here will show up in this list.</p>
+        </section>
+      }
     } @else {
       <ul class="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white" aria-label="Tasks">
         @for (row of rows(); track row.task.id) {
@@ -144,9 +160,6 @@
             </div>
 
             <div class="flex shrink-0 flex-wrap items-center gap-2">
-              @if (row.overdue) {
-                <span class="rounded-full border px-2 py-0.5 text-xs" [class]="overdueChip">Overdue</span>
-              }
               <span class="rounded-full border px-2 py-0.5 text-xs" [class]="statusChip[row.task.status]">
                 {{ statusLabels[row.task.status] }}
               </span>
@@ -157,6 +170,19 @@
           </li>
         }
       </ul>
+
+      @if (hasMore()) {
+        <div class="flex justify-center">
+          <button
+            type="button"
+            (click)="loadMore()"
+            [disabled]="loadingMore()"
+            class="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {{ loadingMore() ? 'Loading…' : 'Load more tasks' }}
+          </button>
+        </div>
+      }
     }
   </div>
 } @else {

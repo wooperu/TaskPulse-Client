@@ -3,9 +3,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   ElementRef,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -16,17 +18,20 @@ import {
 } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { TaskService } from '../../../core/services/task.service';
+import { CurrentUserService } from '../../../core/services/current-user.service';
+import { TaskApiService, TaskDetails } from '../../../core/services/task-api.service';
 import { WorkspaceService } from '../../../core/services/workspace.service';
+import { ApiResult } from '../../../core/http/api-result';
 import {
-  OVERDUE_CHIP,
   PRIORITY_CHIP,
   PRIORITY_LABELS,
   STATUS_CHIP,
   STATUS_LABELS,
 } from '../../../shared/models/task-display';
-import { toLocalDateKey } from '../../../shared/utils/date-key';
 import { isOverdue } from '../../../shared/utils/task-rules';
+
+/** loading: first request. not-found: the API has no such task for this user. error: any other failure. */
+type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
 
 @Component({
   selector: 'app-task-detail',
@@ -37,20 +42,27 @@ import { isOverdue } from '../../../shared/utils/task-rules';
 })
 export class TaskDetail {
   private readonly workspaceService = inject(WorkspaceService);
-  private readonly taskService = inject(TaskService);
+  private readonly taskApi = inject(TaskApiService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly route = inject(ActivatedRoute);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  // Captured once; a tab left open past midnight keeps yesterday's value until reload.
-  private readonly today = toLocalDateKey(new Date());
-
-  protected readonly isSampleData = this.taskService.isSampleData;
   protected readonly statusLabels = STATUS_LABELS;
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly statusChip = STATUS_CHIP;
   protected readonly priorityChip = PRIORITY_CHIP;
-  protected readonly overdueChip = OVERDUE_CHIP;
   protected readonly statusMessage = signal('');
+  protected readonly errorMessage = signal('');
+
+  /** True while a change is being sent, so no action can be sent twice. */
+  protected readonly busy = signal(false);
+
+  protected readonly loadState = signal<LoadState>('loading');
+  protected readonly loadError = signal('');
+  private readonly details = signal<TaskDetails | null>(null);
+
+  /** Bumped by every load, so an answer for a task the person already left is dropped. */
+  private requestId = 0;
 
   // paramMap, not snapshot: the same component instance is reused when ids change.
   private readonly params = toSignal(
@@ -70,35 +82,32 @@ export class TaskDetail {
     return id ? this.workspaceService.getById(id) : undefined;
   });
 
+  /** The task, only when it belongs to the workspace in the address. */
   protected readonly task = computed(() => {
-    const { taskId } = this.params();
+    const task = this.details()?.task;
     const workspace = this.workspace();
-    const task = taskId ? this.taskService.getById(taskId) : undefined;
     return task && workspace && task.workspaceId === workspace.id ? task : undefined;
   });
 
   protected readonly overdue = computed(() => {
     const task = this.task();
-    return task ? isOverdue(task, this.today) : false;
+    return task ? isOverdue(task) : false;
   });
 
-  protected readonly assigneeLabel = computed(() =>
-    this.workspaceService.memberName(this.task()?.assigneeId ?? null),
-  );
+  protected readonly assigneeLabel = computed(() => this.details()?.assigneeName ?? 'Unassigned');
 
-  protected readonly creatorLabel = computed(() =>
-    this.workspaceService.memberName(this.task()?.createdById ?? null),
-  );
+  protected readonly creatorLabel = computed(() => this.details()?.creatorName ?? '');
 
   protected readonly comments = computed(() => {
-    const task = this.task();
-    if (!task) return [];
+    const me = this.currentUser.user().id;
 
-    return this.taskService.commentsFor(task.id).map((comment) => ({
-      comment,
-      authorLabel: this.workspaceService.memberName(comment.authorId),
-      mine: comment.authorId === this.taskService.currentUserId,
-    }));
+    return [...(this.details()?.comments ?? [])]
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((comment) => ({
+        comment,
+        authorLabel: comment.authorName ?? 'Unknown',
+        mine: comment.authorId === me,
+      }));
   });
 
   protected readonly commentForm = new FormGroup({
@@ -109,16 +118,34 @@ export class TaskDetail {
     }),
   });
 
-  protected start(): void {
-    this.transition((id) => this.taskService.start(id), 'Task started.');
+  constructor() {
+    effect(() => {
+      const { taskId } = this.params();
+
+      if (taskId) untracked(() => void this.fetch(taskId, false));
+    });
   }
 
-  protected complete(): void {
-    this.transition((id) => this.taskService.complete(id), 'Task marked as completed.');
+  protected reload(): void {
+    const { taskId } = this.params();
+
+    if (taskId) void this.fetch(taskId, false);
   }
 
-  protected reopen(): void {
-    this.transition((id) => this.taskService.reopen(id), 'Task reopened.');
+  protected start(): Promise<void> {
+    return this.change((id) => this.taskApi.start(id), 'Task started.');
+  }
+
+  /** An overdue task may be stored as Pending or Ongoing; the service handles both (see completeOverdue). */
+  protected complete(): Promise<void> {
+    return this.change(
+      (id) => (this.overdue() ? this.taskApi.completeOverdue(id) : this.taskApi.complete(id)),
+      'Task marked as completed.',
+    );
+  }
+
+  protected reopen(): Promise<void> {
+    return this.change((id) => this.taskApi.reopen(id), 'Task reopened.');
   }
 
   protected commentError(): string | null {
@@ -130,7 +157,9 @@ export class TaskDetail {
     return null;
   }
 
-  protected addComment(): void {
+  protected async addComment(): Promise<void> {
+    if (this.busy()) return;
+
     this.commentForm.markAllAsTouched();
     const task = this.task();
 
@@ -139,25 +168,100 @@ export class TaskDetail {
       return;
     }
 
-    if (this.taskService.addComment(task.id, this.commentForm.controls.commentBody.value)) {
-      this.commentForm.reset();
-      this.statusMessage.set('Comment added.');
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+
+    this.busy.set(true);
+    const result = await this.taskApi.addComment(task.id, this.commentForm.controls.commentBody.value);
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.errorMessage.set(result.error.message);
+      return;
     }
+
+    this.details.update((current) =>
+      current ? { ...current, comments: [...current.comments, result.value] } : current,
+    );
+    this.commentForm.reset();
+    this.statusMessage.set('Comment added.');
   }
 
-  protected deleteComment(commentId: string): void {
+  protected async deleteComment(commentId: string): Promise<void> {
     const task = this.task();
 
-    if (task && this.taskService.deleteComment(task.id, commentId)) {
-      this.statusMessage.set('Comment deleted.');
-      // The delete button that had focus is gone, so move focus somewhere sensible.
-      this.focusCommentBox();
+    if (!task || this.busy()) return;
+
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+
+    this.busy.set(true);
+    const result = await this.taskApi.deleteComment(task.id, commentId);
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.errorMessage.set(result.error.message);
+      return;
     }
+
+    this.details.update((current) =>
+      current ? { ...current, comments: current.comments.filter((item) => item.id !== commentId) } : current,
+    );
+    this.statusMessage.set('Comment deleted.');
+    // The delete button that had focus is gone, so move focus somewhere sensible.
+    this.focusCommentBox();
   }
 
-  private transition(action: (taskId: string) => boolean, message: string): void {
+  /** Sends a status change, then reloads the task so the page shows what the API now says. */
+  private async change(action: (taskId: string) => Promise<ApiResult>, message: string): Promise<void> {
     const task = this.task();
-    this.statusMessage.set(task && action(task.id) ? message : '');
+
+    if (!task || this.busy()) return;
+
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+
+    this.busy.set(true);
+    const result = await action(task.id);
+
+    if (!result.ok) {
+      this.busy.set(false);
+      this.errorMessage.set(result.error.message);
+      // A partly done change (started but not completed) leaves the task different from what is shown.
+      await this.fetch(task.id, true);
+      return;
+    }
+
+    await this.fetch(task.id, true);
+    this.busy.set(false);
+    this.statusMessage.set(message);
+  }
+
+  /** `quiet` keeps the current page on screen while refreshing, instead of showing the loading state. */
+  private async fetch(taskId: string, quiet: boolean): Promise<void> {
+    const requestId = ++this.requestId;
+
+    if (!quiet) {
+      this.loadState.set('loading');
+      this.details.set(null);
+      this.statusMessage.set('');
+      this.errorMessage.set('');
+    }
+
+    const result = await this.taskApi.getDetails(taskId);
+
+    if (requestId !== this.requestId) return;
+
+    if (result.ok) {
+      this.details.set(result.value);
+      this.loadState.set('ready');
+      return;
+    }
+
+    if (quiet) return;
+
+    this.loadState.set(result.error.kind === 'not-found' ? 'not-found' : 'error');
+    this.loadError.set(result.error.message);
   }
 
   private focusCommentBox(): void {

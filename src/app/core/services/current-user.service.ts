@@ -2,8 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CurrentUser, UserRole } from '../../shared/models/current-user.model';
-import { UserResponse } from '../../shared/models/api/auth.api';
+import { UpdateProfileRequest, UserResponse } from '../../shared/models/api/auth.api';
 import { apiUrl } from '../config/api.config';
+import { ApiResult, toApiResult } from '../http/api-result';
 
 /** Shown while nobody is signed in, so screens that read user() synchronously never get null. */
 const SIGNED_OUT_USER: CurrentUser = {
@@ -23,6 +24,17 @@ function toRole(value: string): UserRole {
   return ROLES.includes(role) ? role : 'employee';
 }
 
+function toCurrentUser(response: UserResponse): CurrentUser {
+  return {
+    id: response.id,
+    firstName: response.firstName,
+    lastName: response.lastName,
+    email: response.email,
+    role: toRole(response.role),
+    isEmailVerified: response.isEmailVerified,
+  };
+}
+
 /** Single boundary between the UI and the signed-in user's data. */
 @Injectable({ providedIn: 'root' })
 export class CurrentUserService {
@@ -33,24 +45,11 @@ export class CurrentUserService {
   readonly isSignedIn = computed(() => this.userState().id !== '');
   readonly isAdmin = computed(() => this.userState().role === 'admin');
 
-  /**
-   * Still true on purpose: the Account page's profile, email and password forms are not
-   * saved to the API yet, and its banner is driven by this flag. Revisit when those are wired.
-   */
-  readonly isSampleData = true;
-
   /** Loads the signed-in user from GET /api/users/get-user. Rejects with the HTTP error. */
   async load(): Promise<CurrentUser> {
     const response = await firstValueFrom(this.http.get<UserResponse>(apiUrl('/api/users/get-user')));
 
-    const user: CurrentUser = {
-      id: response.id,
-      firstName: response.firstName,
-      lastName: response.lastName,
-      email: response.email,
-      role: toRole(response.role),
-      isEmailVerified: response.isEmailVerified,
-    };
+    const user = toCurrentUser(response);
 
     this.userState.set(user);
     return user;
@@ -60,12 +59,19 @@ export class CurrentUserService {
     this.userState.set(SIGNED_OUT_USER);
   }
 
-  /** In-memory only and lost on reload. Replace with PUT /api/users/update-profile later. */
-  updateProfile(firstName: string, lastName: string): void {
-    this.userState.update((user) => ({
-      ...user,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-    }));
+  /**
+   * Saves the name with PUT /api/users/update-profile. The signed-in user changes only after the
+   * API confirmed it, using the user the API sends back.
+   */
+  async updateProfile(firstName: string, lastName: string): Promise<ApiResult<CurrentUser>> {
+    const body: UpdateProfileRequest = { firstName: firstName.trim(), lastName: lastName.trim() };
+    const result = await toApiResult(this.http.put<UserResponse>(apiUrl('/api/users/update-profile'), body));
+
+    if (!result.ok) return result;
+
+    const user = toCurrentUser(result.value);
+
+    this.userState.set(user);
+    return { ok: true, value: user };
   }
 }

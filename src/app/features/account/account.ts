@@ -12,6 +12,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { AuthService } from '../../core/services/auth.service';
 import { CurrentUserService } from '../../core/services/current-user.service';
 import { UnverifiedEmailNotice } from '../../shared/components/unverified-email-notice/unverified-email-notice';
 import { emailValidators } from '../../shared/validators/email';
@@ -41,7 +42,15 @@ const NEW_PASSWORD_MESSAGES: Messages = {
 };
 const CONFIRM_PASSWORD_MESSAGES: Messages = { required: 'Please confirm your new password.' };
 
-const SAMPLE_NOTE = 'This is sample data and is lost when you reload.';
+/** What a section tells the person after they submit it. */
+interface Feedback {
+  readonly text: string;
+  readonly tone: 'success' | 'error';
+}
+
+function failure(text: string): Feedback {
+  return { text, tone: 'error' };
+}
 
 @Component({
   selector: 'app-account',
@@ -52,15 +61,18 @@ const SAMPLE_NOTE = 'This is sample data and is lost when you reload.';
 })
 export class Account {
   private readonly currentUser = inject(CurrentUserService);
+  private readonly auth = inject(AuthService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly user = this.currentUser.user;
-  protected readonly isSampleData = this.currentUser.isSampleData;
 
-  protected readonly profileMessage = signal('');
-  protected readonly emailMessage = signal('');
-  protected readonly passwordMessage = signal('');
-  protected readonly sessionsMessage = signal('');
+  protected readonly profileMessage = signal<Feedback | null>(null);
+  protected readonly emailMessage = signal<Feedback | null>(null);
+  protected readonly passwordMessage = signal<Feedback | null>(null);
+  protected readonly sessionsMessage = signal<Feedback | null>(null);
+
+  /** True while a request is running. Every action on the page waits for it, so none can be sent twice. */
+  protected readonly busy = signal(false);
 
   protected readonly profileForm = new FormGroup({
     firstName: new FormControl(this.user().firstName, {
@@ -120,8 +132,10 @@ export class Account {
     );
   }
 
-  protected saveProfile(): void {
-    this.profileMessage.set('');
+  protected async saveProfile(): Promise<void> {
+    if (this.busy()) return;
+
+    this.profileMessage.set(null);
     this.profileForm.markAllAsTouched();
 
     if (this.profileForm.invalid) {
@@ -133,12 +147,29 @@ export class Account {
     }
 
     const { firstName, lastName } = this.profileForm.getRawValue();
-    this.currentUser.updateProfile(firstName, lastName);
-    this.profileMessage.set(`Profile updated. ${SAMPLE_NOTE}`);
+
+    this.busy.set(true);
+    const result = await this.currentUser.updateProfile(firstName, lastName);
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.profileMessage.set(failure(result.error.message));
+      return;
+    }
+
+    // Show what the API stored (it trims the names), not what was typed.
+    this.profileForm.patchValue({ firstName: result.value.firstName, lastName: result.value.lastName });
+    this.profileMessage.set({ text: 'Profile updated.', tone: 'success' });
   }
 
-  protected changeEmail(): void {
-    this.emailMessage.set('');
+  /**
+   * The API revokes every session when the email changes and marks the new address unverified, so a
+   * success ends this session and sends the person to the login page.
+   */
+  protected async changeEmail(): Promise<void> {
+    if (this.busy()) return;
+
+    this.emailMessage.set(null);
     this.emailForm.markAllAsTouched();
 
     if (this.emailForm.invalid) {
@@ -149,13 +180,27 @@ export class Account {
       return;
     }
 
-    this.emailMessage.set(
-      'Your form is valid. Changing your email will be available once the backend is connected.',
+    const { newEmail, currentPassword } = this.emailForm.getRawValue();
+
+    this.busy.set(true);
+    const result = await this.auth.changeEmail(newEmail, currentPassword);
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.emailMessage.set(failure(result.error.message));
+      return;
+    }
+
+    await this.auth.signOutAndRedirect(
+      `Your email address was changed to ${newEmail.trim()}. Verify the new address with the link we're sending to it, then sign in again.`,
     );
   }
 
-  protected changePassword(): void {
-    this.passwordMessage.set('');
+  /** The API revokes every session when the password changes, so a success ends this session. */
+  protected async changePassword(): Promise<void> {
+    if (this.busy()) return;
+
+    this.passwordMessage.set(null);
     this.passwordForm.markAllAsTouched();
 
     if (this.passwordForm.invalid) {
@@ -174,15 +219,36 @@ export class Account {
       return;
     }
 
-    this.passwordMessage.set(
-      'Your form is valid. Changing your password will be available once the backend is connected.',
-    );
+    const { currentPassword, password } = this.passwordForm.getRawValue();
+
+    this.busy.set(true);
+    const result = await this.auth.changePassword(currentPassword, password);
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.passwordMessage.set(failure(result.error.message));
+      return;
+    }
+
+    await this.auth.signOutAndRedirect('Your password was changed. Sign in with your new password.');
   }
 
-  protected signOutEverywhere(): void {
-    this.sessionsMessage.set(
-      'Signing out of all devices will be available once the backend is connected.',
-    );
+  /** Signs out on every device, this one included. Only a confirmed success ends the session here. */
+  protected async signOutEverywhere(): Promise<void> {
+    if (this.busy()) return;
+
+    this.sessionsMessage.set(null);
+
+    this.busy.set(true);
+    const result = await this.auth.logoutAll();
+    this.busy.set(false);
+
+    if (!result.ok) {
+      this.sessionsMessage.set(failure(result.error.message));
+      return;
+    }
+
+    await this.auth.signOutAndRedirect('You were signed out of all devices. Sign in again to continue.');
   }
 
   /** Focuses the first invalid control, by input id. Returns whether one was found. */
