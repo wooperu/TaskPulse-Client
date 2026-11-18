@@ -24,7 +24,7 @@
         WORKSPACE
       </p>
 
-      <nav class="flex gap-1 md:flex-col" aria-label="Primary">
+      <nav class="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible" aria-label="Primary">
         <a
           routerLink="/dashboard"
           routerLinkActive="bg-zinc-100 text-zinc-950"
@@ -67,6 +67,29 @@
         </a>
       </nav>
     </div>
+
+    @if (isAdmin()) {
+      <div class="px-3 pb-3">
+        <p class="mb-2 px-3 text-[11px] font-semibold tracking-widest text-zinc-400">
+          ADMIN
+        </p>
+
+        <nav class="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible" aria-label="Admin">
+          @for (link of adminLinks; track link.path) {
+            <a
+              [routerLink]="link.path"
+              routerLinkActive="bg-zinc-100 text-zinc-950"
+              ariaCurrentWhenActive="page"
+              [routerLinkActiveOptions]="{ exact: true }"
+              class="flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm text-zinc-600 transition hover:bg-zinc-100"
+            >
+              <span aria-hidden="true">{{ link.icon }}</span>
+              {{ link.label }}
+            </a>
+          }
+        </nav>
+      </div>
+    }
 
     <div class="mt-auto hidden border-t border-zinc-100 p-4 md:block">
       <div class="rounded-xl bg-zinc-50 p-3">
