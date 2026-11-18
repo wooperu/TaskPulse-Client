@@ -66,3 +66,15 @@ export interface ChangeMemberRoleRequest {
 export interface TransferOwnershipRequest {
   newOwnerId: string;
 }
+
+/** AdminWorkspaceDto: one row of GET /api/admin/workspaces. */
+export interface AdminWorkspaceResponse {
+  id: string;
+  name: string;
+  createdBy: string;
+  createdAtUtc: string;
+  isArchived: boolean;
+  archivedAtUtc: string | null;
+  memberCount: number;
+  members: WorkspaceMemberResponse[];
+}

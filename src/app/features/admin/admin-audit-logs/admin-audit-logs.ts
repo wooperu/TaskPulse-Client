@@ -113,7 +113,7 @@ export class AdminAuditLogs {
         }
 
         this.copiedId.set(userId);
-        this.statusMessage.set(`Copied user ID ${userId}. Paste it on the Users tab to change their role.`);
+        this.statusMessage.set(`Copied user ID ${userId}.`);
         setTimeout(() => {
             if (this.copiedId() === userId) this.copiedId.set(null);
         }, 2000);

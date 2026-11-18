@@ -1,58 +1,144 @@
 <div class="space-y-6">
     <header>
         <h1 class="text-2xl font-semibold tracking-tight">User management</h1>
-        <p class="mt-1 text-sm text-zinc-500">Change the role of a user.</p>
+        <p class="mt-1 text-sm text-zinc-500">See everyone who has registered and change their role.</p>
     </header>
 
+    <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
     <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
 
-    <section aria-labelledby="form-heading" class="rounded-xl border border-zinc-200 bg-white p-5">
-        <h2 id="form-heading" class="text-sm font-medium">Change role</h2>
+    <section class="rounded-xl border border-zinc-200 bg-white p-5">
+        <label for="search" class="mb-1 block text-xs font-medium text-zinc-600">Filter this page</label>
+        <input
+            id="search"
+            type="search"
+            [value]="search()"
+            (input)="onSearch($event)"
+            placeholder="Name or email"
+            class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
+        />
+        <p class="mt-2 text-xs text-zinc-500">Only narrows the {{ rows().length }} users shown on this page.</p>
+    </section>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="mt-4 space-y-4">
-            <div class="grid gap-4 sm:grid-cols-[1fr_auto]">
-                <div>
-                    <label for="userId" class="mb-1 block text-xs font-medium text-zinc-600">User ID</label>
-                    <input
-                        id="userId"
-                        type="text"
-                        formControlName="userId"
-                        autocomplete="off"
-                        spellcheck="false"
-                        placeholder="00000000-0000-0000-0000-000000000000"
-                        [attr.aria-invalid]="userIdError() !== null"
-                        class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-                    />
-                    @if (userIdError(); as message) {
-                        <p class="mt-2 text-sm text-red-600">{{ message }}</p>
-                    }
-                </div>
+    <section aria-labelledby="users-heading" class="rounded-xl border border-zinc-200 bg-white">
+        <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 py-4">
+            <h2 id="users-heading" class="text-sm font-medium">
+                Users<span class="font-normal text-zinc-500"> ({{ total() }})</span>
+            </h2>
+        </div>
 
-                <div>
-                    <label for="role" class="mb-1 block text-xs font-medium text-zinc-600">New role</label>
-                    <select
-                        id="role"
-                        formControlName="role"
-                        class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
-                    >
-                        @for (role of roles; track role) {
-                            <option [value]="role">{{ roleLabels[role] }}</option>
-                        }
-                    </select>
-                </div>
-            </div>
-
-            @if (formError()) {
-                <p role="alert" class="text-sm text-red-600">{{ formError() }}</p>
-            }
-
-            <button
-                type="submit"
-                [disabled]="busy()"
-                class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        @if (loadError()) {
+            <div
+                role="alert"
+                class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 px-5 py-4 text-sm text-red-700"
             >
-                {{ busy() ? 'Saving…' : 'Change role' }}
-            </button>
-        </form>
+                <span>{{ loadError() }}</span>
+                <button
+                    type="button"
+                    (click)="retry()"
+                    class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                >
+                    Try again
+                </button>
+            </div>
+        } @else if (loading() && rows().length === 0) {
+            <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Loading users…</p>
+        } @else if (rows().length === 0) {
+            <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">No users match.</p>
+        } @else {
+            <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Users">
+                @for (row of rows(); track row.user.id) {
+                    <li class="px-5 py-4">
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="break-words text-sm font-medium">
+                                        {{ row.user.firstName }} {{ row.user.lastName }}
+                                    </p>
+                                    @if (row.isMe) {
+                                        <span class="rounded-full border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700">You</span>
+                                    }
+                                    @if (!row.user.isEmailVerified) {
+                                        <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-800">
+                                            Email not verified
+                                        </span>
+                                    }
+                                </div>
+                                <p class="mt-0.5 break-all text-sm text-zinc-600">{{ row.user.email }}</p>
+                                <p class="mt-0.5 text-xs text-zinc-500">
+                                    Registered {{ row.user.registeredAt | date: 'MMM d, y' }}
+                                    · {{ row.user.workspaceCount }}
+                                    {{ row.user.workspaceCount === 1 ? 'workspace' : 'workspaces' }}
+                                </p>
+                            </div>
+
+                            <div class="shrink-0">
+                                <label [attr.for]="'role-' + row.user.id" class="sr-only">
+                                    Role for {{ row.user.firstName }} {{ row.user.lastName }}
+                                </label>
+                                <select
+                                    [id]="'role-' + row.user.id"
+                                    (change)="onRoleChange(row.user, $event)"
+                                    [disabled]="row.isMe || busyId() !== null"
+                                    class="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    @for (role of roles; track role) {
+                                        <option [value]="role" [selected]="row.user.role === role">{{ roleLabels[role] }}</option>
+                                    }
+                                </select>
+                                @if (row.isMe) {
+                                    <p class="mt-1 text-xs text-zinc-500">You can't change your own role.</p>
+                                }
+                            </div>
+                        </div>
+
+                        @if (row.user.workspaces.length > 0) {
+                            <details class="mt-2">
+                                <summary class="cursor-pointer text-xs font-medium text-zinc-600 hover:text-zinc-950">
+                                    Show workspaces<span class="sr-only"> of {{ row.user.firstName }} {{ row.user.lastName }}</span>
+                                </summary>
+                                <ul class="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                                    @for (workspace of row.user.workspaces; track workspace.workspaceId) {
+                                        <li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                                            <span class="min-w-0 break-words">
+                                                {{ workspace.name }}
+                                                @if (workspace.isArchived) {
+                                                    <span class="ml-1 rounded-full border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700">Archived</span>
+                                                }
+                                            </span>
+                                            <span class="shrink-0 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-700">
+                                                {{ workspaceRoleLabels[workspace.role] }}
+                                            </span>
+                                        </li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (totalPages() > 1) {
+                <nav class="flex items-center justify-between gap-3 border-t border-zinc-100 px-5 py-3" aria-label="Users pages">
+                    <button
+                        type="button"
+                        (click)="goToPage(page() - 1)"
+                        [disabled]="page() <= 1 || loading()"
+                        class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
+                    <p class="text-xs text-zinc-500">Page {{ page() }} of {{ totalPages() }}</p>
+                    <button
+                        type="button"
+                        (click)="goToPage(page() + 1)"
+                        [disabled]="page() >= totalPages() || loading()"
+                        class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Next
+                    </button>
+                </nav>
+            }
+        }
     </section>
 </div>
