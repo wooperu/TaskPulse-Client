@@ -19,6 +19,7 @@ export const DUE_SOON_DAYS = 7;
 export function isDueSoon(task: Task, today: string, days: number = DUE_SOON_DAYS): boolean {
   return (
     task.status !== 'completed' &&
+    task.status !== 'overdue' &&
     task.dueDate !== null &&
     task.dueDate >= today &&
     task.dueDate <= addDaysToDateKey(today, days)
