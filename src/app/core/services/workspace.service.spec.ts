@@ -6,7 +6,7 @@ import { WorkspaceSummaryResponse } from '../../shared/models/api/workspace.api'
 import { apiUrl } from '../config/api.config';
 import { toWorkspace, WorkspaceService } from './workspace.service';
 
-const LIST_URL = apiUrl('/api/workspaces?includeArchived=true');
+const LIST_URL = apiUrl('/api/workspaces');
 
 function summary(overrides: Partial<WorkspaceSummaryResponse> = {}): WorkspaceSummaryResponse {
   return {
@@ -26,11 +26,12 @@ describe('WorkspaceService', () => {
   let service: WorkspaceService;
 
   const tick = () => new Promise<void>((resolve) => setTimeout(resolve));
+  const listRequest = () => http.expectOne((req) => req.url === LIST_URL && req.method === 'GET');
 
   async function loaded(list: WorkspaceSummaryResponse[] = [summary()]): Promise<void> {
     const loading = service.load();
     await tick();
-    http.expectOne(LIST_URL).flush(list);
+    listRequest().flush(list);
     await loading;
   }
 
@@ -54,18 +55,30 @@ describe('WorkspaceService', () => {
   it('starts empty and idle', () => {
     expect(service.workspaces()).toEqual([]);
     expect(service.status()).toBe('idle');
+    expect(service.loading()).toBe(false);
+    expect(service.loadError()).toBe('');
   });
 
   it('loads the list, archived workspaces included', async () => {
     const loading = service.load();
 
-    expect(service.status()).toBe('loading');
+    expect(service.loading()).toBe(true);
     await tick();
-    http.expectOne(LIST_URL).flush([summary(), summary({ id: 'w-2', name: 'Old', isArchived: true, myRole: 'Member' })]);
+    const request = listRequest();
+    expect(request.request.params.get('includeArchived')).toBe('true');
+    request.flush([summary(), summary({ id: 'w-2', name: 'Old', isArchived: true, myRole: 'Member' })]);
+    await loading;
 
-    expect((await loading).ok).toBe(true);
     expect(service.status()).toBe('ready');
+    expect(service.loading()).toBe(false);
     expect(service.getById('w-2')).toMatchObject({ name: 'Old', isArchived: true, myRole: 'member' });
+  });
+
+  it('sends the list request right away, without waiting a tick', () => {
+    // The shared test helper (testing/seed-workspaces.ts) flushes straight after calling load().
+    void service.load();
+
+    listRequest().flush([]);
   });
 
   it('shares one request between callers that ask while it runs', async () => {
@@ -73,17 +86,18 @@ describe('WorkspaceService', () => {
     const second = service.ensureLoaded();
 
     await tick();
-    http.expectOne(LIST_URL).flush([summary()]);
+    listRequest().flush([summary()]);
+    await Promise.all([first, second]);
 
-    expect((await first).ok).toBe(true);
-    expect((await second).ok).toBe(true);
+    expect(service.workspaces()).toHaveLength(1);
   });
 
   it('does not ask the API again once the list is current', async () => {
     await loaded();
 
-    expect((await service.ensureLoaded()).ok).toBe(true);
-    http.expectNone(LIST_URL);
+    await service.ensureLoaded();
+
+    http.expectNone((req) => req.url === LIST_URL);
   });
 
   it('keeps the previous list when a refresh fails, and reports the error', async () => {
@@ -91,11 +105,28 @@ describe('WorkspaceService', () => {
 
     const reloading = service.load();
     await tick();
-    http.expectOne(LIST_URL).flush(null, { status: 500, statusText: 'Server Error' });
+    listRequest().flush(null, { status: 500, statusText: 'Server Error' });
+    await reloading;
 
-    expect(await reloading).toMatchObject({ ok: false, error: { kind: 'server' } });
     expect(service.status()).toBe('error');
+    expect(service.loadError()).not.toBe('');
     expect(service.workspaces()).toHaveLength(1);
+  });
+
+  it('clears the error when the next load starts', async () => {
+    const failing = service.load();
+    await tick();
+    listRequest().flush(null, { status: 500, statusText: 'Server Error' });
+    await failing;
+    expect(service.loadError()).not.toBe('');
+
+    const retrying = service.load();
+    expect(service.loadError()).toBe('');
+    await tick();
+    listRequest().flush([summary()]);
+    await retrying;
+
+    expect(service.status()).toBe('ready');
   });
 
   it('forgets everything on clear, and ignores a load that finishes afterwards', async () => {
@@ -104,7 +135,7 @@ describe('WorkspaceService', () => {
     const loading = service.load();
     await tick();
     service.clear();
-    http.expectOne(LIST_URL).flush([summary({ id: 'w-9', name: 'Previous user' })]);
+    listRequest().flush([summary({ id: 'w-9', name: 'Previous user' })]);
     await loading;
 
     expect(service.workspaces()).toEqual([]);
@@ -116,16 +147,14 @@ describe('WorkspaceService', () => {
 
     const creating = service.create('  Design  ');
     await tick();
-    const request = http.expectOne(apiUrl('/api/workspaces'));
-    expect(request.request.method).toBe('POST');
+    const request = http.expectOne((req) => req.url === LIST_URL && req.method === 'POST');
     expect(request.request.body).toEqual({ name: 'Design' });
     request.flush(
       { id: 'w-2', name: 'Design', createdBy: 'u-1', createdAtUtc: '2026-11-16T10:00:00Z', isArchived: false },
       { status: 201, statusText: 'Created' },
     );
 
-    const result = await creating;
-    expect(result.ok).toBe(true);
+    expect((await creating).ok).toBe(true);
     expect(service.workspaces()[0]).toEqual({ id: 'w-2', name: 'Design', myRole: 'owner', memberCount: 1, isArchived: false });
   });
 
@@ -134,7 +163,7 @@ describe('WorkspaceService', () => {
 
     const creating = service.create('Design');
     await tick();
-    http.expectOne(apiUrl('/api/workspaces')).flush(
+    http.expectOne((req) => req.url === LIST_URL && req.method === 'POST').flush(
       { title: 'One or more validation errors occurred.', errors: { Name: ['Workspace name cannot exceed 100 characters.'] } },
       { status: 400, statusText: 'Bad Request' },
     );

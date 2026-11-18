@@ -15,7 +15,6 @@ import {
   GoogleDriveUploadService,
 } from '../../../core/services/google-drive-upload.service';
 import { Documents } from './documents';
-import { seedWorkspaces, workspaceHttpTestProviders } from '../../../testing/seed-workspaces';
 
 /**
  * Stands in for WorkspaceService, which now loads the real list from the API. These tests need
@@ -73,7 +72,7 @@ describe('Documents upload workflow', () => {
     localStorage.clear();
     uploadDocx.mockReset();
     params = new BehaviorSubject(convertToParamMap({ workspaceId: 'ws-product' }));
-        await TestBed.configureTestingModule({
+    await TestBed.configureTestingModule({
       imports: [Documents],
       providers: [
         provideRouter([]),
@@ -84,10 +83,8 @@ describe('Documents upload workflow', () => {
         },
         { provide: GoogleDriveAuthService, useValue: authService },
         { provide: GoogleDriveUploadService, useValue: { uploadDocx } },
-        ...workspaceHttpTestProviders(),
       ],
     }).compileComponents();
-    await seedWorkspaces();
   });
 
   afterEach(() => {
@@ -249,7 +246,6 @@ describe('Documents route reuse', () => {
         { provide: WorkspaceService, useClass: SeededWorkspaceService },
       ],
     }).compileComponents();
-    await seedWorkspaces();
     const service = TestBed.inject(DocumentWorkspaceService);
     service.add('ws-product', 'Product notes', FILE_ID);
     service.add('ws-design', 'Design notes', 'ZyXwVuTsRqPoNmLkJiHgFeDcBa0987654321_-');
@@ -297,7 +293,7 @@ describe('Archived document mode', () => {
         removeEventListener: removeMediaListener,
       })),
     });
-        await TestBed.configureTestingModule({
+    await TestBed.configureTestingModule({
       imports: [Documents],
       providers: [
         provideRouter([]),
@@ -315,10 +311,8 @@ describe('Archived document mode', () => {
             getValidAccessToken: () => 'memory-only-token',
           },
         },
-        ...workspaceHttpTestProviders(),
       ],
     }).compileComponents();
-    await seedWorkspaces();
   });
 
   afterEach(() => {
