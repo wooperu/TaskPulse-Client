@@ -3,8 +3,8 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 import { CurrentUserService } from '../../core/services/current-user.service';
 import { MemberService } from '../../core/services/member.service';
+import { MyTasksService } from '../../core/services/my-tasks.service';
 import { NotificationService } from '../../core/services/notification.service';
-import { TaskService } from '../../core/services/task.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { ROLE_LABELS, PRIORITY_CHIP, PRIORITY_LABELS } from '../../shared/models/task-display';
 import { Task } from '../../shared/models/task.model';
@@ -17,9 +17,8 @@ import { DUE_SOON_DAYS, dueSoonTasks, overdueTasks, summarizeTasks } from './das
 const LIST_LIMIT = 5;
 
 /**
- * Home after sign-in: the signed-in user's own work across every workspace
- * (assigned to them or created by them), plus pending invitations and recent
- * notifications. Everything reads mock-backed services for now.
+ * Home after sign-in: the signed-in user's assigned tasks across every workspace (from the API),
+ * plus pending invitations and recent notifications (still sample data).
  */
 @Component({
   imports: [DatePipe, RouterLink],
@@ -29,7 +28,7 @@ const LIST_LIMIT = 5;
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
-  private readonly taskService = inject(TaskService);
+  private readonly myTasks = inject(MyTasksService);
   private readonly workspaceService = inject(WorkspaceService);
   private readonly memberService = inject(MemberService);
   private readonly notificationService = inject(NotificationService);
@@ -39,25 +38,33 @@ export class Dashboard {
   private readonly today = toLocalDateKey(this.now);
 
   protected readonly firstName = inject(CurrentUserService).user().firstName;
-  protected readonly isSampleData = this.taskService.isSampleData;
+  /** Invitations and notifications are not connected yet; tasks are. */
+  protected readonly isSampleData = this.memberService.isSampleData || this.notificationService.isSampleData;
   protected readonly dueSoonDays = DUE_SOON_DAYS;
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly priorityChip = PRIORITY_CHIP;
 
-  private readonly mine = computed(() => this.taskService.myTasks());
+  protected readonly tasksLoaded = this.myTasks.loaded;
+  protected readonly tasksError = this.myTasks.loadError;
+  protected readonly tasksPartial = this.myTasks.truncated;
+
+  private readonly mine = computed(() => this.myTasks.tasks());
 
   protected readonly summary = computed(() => summarizeTasks(this.mine(), this.today));
   protected readonly hasTasks = computed(() => this.mine().length > 0);
 
+  /** A dash stands in until the real numbers have arrived. */
   protected readonly cards = computed(() => {
     const s = this.summary();
+    const ready = this.tasksLoaded();
+    const show = (value: number) => (ready ? value : '–');
 
     return [
-      { label: 'Overdue', value: s.overdue, alert: s.overdue > 0 },
-      { label: `Due in ${DUE_SOON_DAYS} days`, value: s.dueSoon, alert: false },
-      { label: 'Open', value: s.open, alert: false },
-      { label: 'Completed', value: s.completed, alert: false },
+      { label: 'Overdue', value: show(s.overdue), alert: ready && s.overdue > 0 },
+      { label: `Due in ${DUE_SOON_DAYS} days`, value: show(s.dueSoon), alert: false },
+      { label: 'Open', value: show(s.open), alert: false },
+      { label: 'Completed', value: show(s.completed), alert: false },
     ];
   });
 
@@ -85,6 +92,16 @@ export class Dashboard {
       ago: timeAgo(notification.createdAt, this.now),
     })),
   );
+
+  constructor() {
+    void this.myTasks.load();
+    // The workspace names on the task rows come from the workspace list.
+    void this.workspaceService.load();
+  }
+
+  protected retryTasks(): void {
+    void this.myTasks.load();
+  }
 
   protected open(notificationId: string): void {
     this.notificationService.markAsRead(notificationId);

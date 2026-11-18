@@ -13,9 +13,25 @@
     </a>
   </header>
 
-  @if (isSampleData) {
-    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-      Showing sample data. Tasks are not connected to your account yet.
+  @if (tasksError()) {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700"
+    >
+      <span>{{ tasksError() }}</span>
+      <button
+        type="button"
+        (click)="retryTasks()"
+        class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+      >
+        Try again
+      </button>
+    </div>
+  }
+
+  @if (tasksPartial()) {
+    <p role="note" class="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">
+      You have more tasks than can be shown here. These figures cover the 100 that are due soonest.
     </p>
   }
 
@@ -32,9 +48,13 @@
     <div class="space-y-6 lg:col-span-2">
       <section aria-labelledby="overdue-heading" class="rounded-xl border border-zinc-200 bg-white">
         <h2 id="overdue-heading" class="px-5 py-4 text-sm font-medium">Overdue</h2>
-        @if (!hasTasks()) {
+        @if (!tasksLoaded()) {
           <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
-            No tasks yet. Tasks assigned to you or created by you will show up here.
+            {{ tasksError() ? 'Your tasks could not be loaded.' : 'Loading your tasks…' }}
+          </p>
+        } @else if (!hasTasks()) {
+          <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+            No tasks yet. Tasks assigned to you will show up here.
           </p>
         } @else if (overdueRows().length === 0) {
           <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Nothing is overdue.</p>
@@ -64,7 +84,11 @@
 
       <section aria-labelledby="due-soon-heading" class="rounded-xl border border-zinc-200 bg-white">
         <h2 id="due-soon-heading" class="px-5 py-4 text-sm font-medium">Due in the next {{ dueSoonDays }} days</h2>
-        @if (!hasTasks()) {
+        @if (!tasksLoaded()) {
+          <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+            {{ tasksError() ? 'Your tasks could not be loaded.' : 'Loading your tasks…' }}
+          </p>
+        } @else if (!hasTasks()) {
           <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Nothing to show yet.</p>
         } @else if (dueSoonRows().length === 0) {
           <p class="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">Nothing is due this week.</p>
