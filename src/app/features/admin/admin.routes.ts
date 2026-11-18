@@ -19,12 +19,6 @@ export const ADMIN_ROUTES: Routes = [
                     import('./admin-users/admin-users').then((m) => m.AdminUsers),
             },
             {
-                path: 'teams',
-                title: 'Teams | TaskPulse',
-                loadComponent: () =>
-                    import('./admin-teams/admin-teams').then((m) => m.AdminTeams),
-            },
-            {
                 path: 'tasks',
                 title: 'All tasks | TaskPulse',
                 loadComponent: () =>
