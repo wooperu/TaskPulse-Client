@@ -6,11 +6,9 @@ export type InvitableRole = Exclude<WorkspaceRole, 'owner'>;
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
 /**
- * PROVISIONAL shapes, modelled on the backend Workspace aggregate (members have
- * a role and a join date; invitations have an assigned role, a status, and an
- * expiry 7 days after they are sent). No API exists yet, so names, the member
- * display fields (name, email) and the invitation fields are guesses until the
- * DTOs are agreed.
+ * WorkspaceMember comes from GET /api/workspaces/{id} (see WorkspaceService.loadMembers).
+ * WorkspaceInvitation is still PROVISIONAL sample-data shape: the API has no endpoint that
+ * lists invitations, and an invitee only learns an invitation id from a notification.
  */
 export interface WorkspaceMember {
   userId: string;
