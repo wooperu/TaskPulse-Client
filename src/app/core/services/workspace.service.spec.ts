@@ -252,4 +252,104 @@ describe('WorkspaceService', () => {
     expect(await loading).toMatchObject({ ok: false, error: { kind: 'not-found' } });
     expect(service.getById('w-1')?.memberCount).toBe(3);
   });
+
+  describe('member actions', () => {
+    const noContent = { status: 204, statusText: 'No Content' };
+    const refusal = (status: number, title: string, detail: string, statusText: string) =>
+      [{ title, detail, status }, { status, statusText }] as const;
+
+    it('invites by email with the API role name, trimming the address', async () => {
+      const inviting = service.invite('w-1', '  ana@example.com ', 'admin');
+      await tick();
+      const request = http.expectOne(apiUrl('/api/workspaces/w-1/invitations'));
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ email: 'ana@example.com', role: 'Admin' });
+      request.flush(null, noContent);
+
+      expect((await inviting).ok).toBe(true);
+    });
+
+    it('surfaces the API message when nobody has that email', async () => {
+      const inviting = service.invite('w-1', 'ghost@example.com', 'member');
+      await tick();
+      http
+        .expectOne(apiUrl('/api/workspaces/w-1/invitations'))
+        .flush(...refusal(404, 'Workspace.InvitedUserNotFound', 'No account exists with that email address.', 'Not Found'));
+
+      expect(await inviting).toMatchObject({
+        ok: false,
+        error: { kind: 'not-found', code: 'Workspace.InvitedUserNotFound', message: 'No account exists with that email address.' },
+      });
+    });
+
+    it('changes a member role with PUT and the API role name', async () => {
+      const changing = service.changeMemberRole('w-1', 'u-2', 'member');
+      await tick();
+      const request = http.expectOne(apiUrl('/api/workspaces/w-1/members/u-2/role'));
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ role: 'Member' });
+      request.flush(null, noContent);
+
+      expect((await changing).ok).toBe(true);
+    });
+
+    it('reports a refused role change', async () => {
+      const changing = service.changeMemberRole('w-1', 'u-2', 'admin');
+      await tick();
+      http
+        .expectOne(apiUrl('/api/workspaces/w-1/members/u-2/role'))
+        .flush(...refusal(403, 'Workspace.NotAuthorized', 'You are not authorized to perform this action.', 'Forbidden'));
+
+      expect(await changing).toMatchObject({ ok: false, error: { kind: 'forbidden', code: 'Workspace.NotAuthorized' } });
+    });
+
+    it('removes a member with DELETE', async () => {
+      const removing = service.removeMember('w-1', 'u-2');
+      await tick();
+      const request = http.expectOne(apiUrl('/api/workspaces/w-1/members/u-2'));
+      expect(request.request.method).toBe('DELETE');
+      request.flush(null, noContent);
+
+      expect((await removing).ok).toBe(true);
+    });
+
+    it('transfers ownership with the new owner id in the body', async () => {
+      const transferring = service.transferOwnership('w-1', 'u-2');
+      await tick();
+      const request = http.expectOne(apiUrl('/api/workspaces/w-1/transfer-ownership'));
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ newOwnerId: 'u-2' });
+      request.flush(null, noContent);
+
+      expect((await transferring).ok).toBe(true);
+    });
+
+    it('drops the workspace from the list only after the API confirmed leaving', async () => {
+      await loaded([summary(), summary({ id: 'w-2', name: 'Sales' })]);
+
+      const leaving = service.leaveWorkspace('w-1');
+      await tick();
+      const request = http.expectOne(apiUrl('/api/workspaces/w-1/leave'));
+      expect(request.request.method).toBe('POST');
+      expect(service.getById('w-1')).toBeDefined();
+      request.flush(null, noContent);
+
+      expect((await leaving).ok).toBe(true);
+      expect(service.getById('w-1')).toBeUndefined();
+      expect(service.getById('w-2')).toBeDefined();
+    });
+
+    it('keeps the workspace when the last owner tries to leave', async () => {
+      await loaded();
+
+      const leaving = service.leaveWorkspace('w-1');
+      await tick();
+      http
+        .expectOne(apiUrl('/api/workspaces/w-1/leave'))
+        .flush(...refusal(400, 'Workspace.CannotLeaveAsLastOwner', 'The last owner cannot leave the workspace.', 'Bad Request'));
+
+      expect(await leaving).toMatchObject({ ok: false, error: { message: 'The last owner cannot leave the workspace.' } });
+      expect(service.getById('w-1')).toBeDefined();
+    });
+  });
 });

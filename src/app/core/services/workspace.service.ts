@@ -2,13 +2,16 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import {
   ApiWorkspaceRole,
+  ChangeMemberRoleRequest,
   CreateWorkspaceRequest,
+  InviteMemberRequest,
   RenameWorkspaceRequest,
+  TransferOwnershipRequest,
   WorkspaceDetailsResponse,
   WorkspaceResponse,
   WorkspaceSummaryResponse,
 } from '../../shared/models/api/workspace.api';
-import { WorkspaceMember } from '../../shared/models/member.model';
+import { InvitableRole, WorkspaceMember } from '../../shared/models/member.model';
 import { Workspace, WorkspaceRole } from '../../shared/models/workspace.model';
 import { apiUrl } from '../config/api.config';
 import { ApiResult, toApiResult } from '../http/api-result';
@@ -18,6 +21,12 @@ const ROLE_FROM_API: Record<ApiWorkspaceRole, WorkspaceRole> = {
   Owner: 'owner',
   Admin: 'admin',
   Member: 'member',
+};
+
+/** Owner is not here on purpose: the API refuses to invite or promote anyone to Owner (use transferOwnership). */
+const INVITABLE_ROLE_TO_API: Record<InvitableRole, Exclude<ApiWorkspaceRole, 'Owner'>> = {
+  admin: 'Admin',
+  member: 'Member',
 };
 
 /** idle: never loaded (or signed out). loading: a request is running. ready: the list is current. error: the last load failed. */
@@ -147,6 +156,58 @@ export class WorkspaceService {
     const result = await toApiResult(this.http.post<void>(apiUrl(`/api/workspaces/${id}/archive`), null));
 
     if (result.ok) this.patch(id, { isArchived: true });
+
+    return result;
+  }
+
+  /**
+   * Owners and admins only, and not on an archived workspace (POST /api/workspaces/{id}/invitations, 204).
+   * The API looks the email up, so the person needs an existing account. Failures worth knowing:
+   * 404 no account with that email, 400 already a member or an invitation is already pending, 403 not allowed.
+   * Nothing is cached: the API has no endpoint that lists invitations.
+   */
+  invite(id: string, email: string, role: InvitableRole): Promise<ApiResult> {
+    const body: InviteMemberRequest = { email: email.trim(), role: INVITABLE_ROLE_TO_API[role] };
+
+    return toApiResult(this.http.post<void>(apiUrl(`/api/workspaces/${id}/invitations`), body));
+  }
+
+  /**
+   * Owner only (PUT /api/workspaces/{id}/members/{memberId}/role, 204). Promoting to Owner is refused; use
+   * transferOwnership. Reload the members afterwards: this does not touch what loadMembers returned.
+   */
+  changeMemberRole(id: string, memberId: string, role: InvitableRole): Promise<ApiResult> {
+    const body: ChangeMemberRoleRequest = { role: INVITABLE_ROLE_TO_API[role] };
+
+    return toApiResult(this.http.put<void>(apiUrl(`/api/workspaces/${id}/members/${memberId}/role`), body));
+  }
+
+  /**
+   * Owners and admins only (DELETE /api/workspaces/{id}/members/{memberId}, 204). An owner can only be removed
+   * by an owner, and never the last one. Reload the members afterwards.
+   */
+  removeMember(id: string, memberId: string): Promise<ApiResult> {
+    return toApiResult(this.http.delete<void>(apiUrl(`/api/workspaces/${id}/members/${memberId}`)));
+  }
+
+  /**
+   * Owner only (POST /api/workspaces/{id}/transfer-ownership, 204). The caller becomes an Admin.
+   * Reload the members afterwards, which also refreshes the cached role.
+   */
+  transferOwnership(id: string, newOwnerId: string): Promise<ApiResult> {
+    const body: TransferOwnershipRequest = { newOwnerId };
+
+    return toApiResult(this.http.post<void>(apiUrl(`/api/workspaces/${id}/transfer-ownership`), body));
+  }
+
+  /**
+   * Any member except the last owner (POST /api/workspaces/{id}/leave, 204). The workspace leaves the cached
+   * list only after the API confirmed it.
+   */
+  async leaveWorkspace(id: string): Promise<ApiResult> {
+    const result = await toApiResult(this.http.post<void>(apiUrl(`/api/workspaces/${id}/leave`), null));
+
+    if (result.ok) this.leave(id);
 
     return result;
   }

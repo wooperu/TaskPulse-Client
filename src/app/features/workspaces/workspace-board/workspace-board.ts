@@ -16,6 +16,7 @@ import { TaskApiService } from '../../../core/services/task-api.service';
 import { toApiStatus } from '../../../core/services/task-mappers';
 import { WorkspaceService } from '../../../core/services/workspace.service';
 import { TaskListQuery } from '../../../shared/models/api/task.api';
+import { WorkspaceMember } from '../../../shared/models/member.model';
 import { Task, TaskDisplayStatus } from '../../../shared/models/task.model';
 import {
   PRIORITY_CHIP,
@@ -33,6 +34,9 @@ type AssigneeFilter = 'all' | 'me';
 
 /** The API allows 1 to 100 per page. */
 const PAGE_SIZE = 50;
+
+/** People shown in the panel before "+N more"; the Members page lists everyone. */
+const PEOPLE_LIMIT = 8;
 
 @Component({
   selector: 'app-workspace-board',
@@ -75,8 +79,19 @@ export class WorkspaceBoard {
   protected readonly loadingMore = signal(false);
   protected readonly errorMessage = signal('');
 
-  /** Member names by user id, for the assignee column. Filled by a second request. */
-  private readonly memberNames = signal<ReadonlyMap<string, string>>(new Map());
+  /** The workspace's people, owner first (the API's order). One request feeds the panel and the assignee column. */
+  protected readonly members = signal<readonly WorkspaceMember[]>([]);
+  protected readonly membersState = signal<'loading' | 'ready' | 'error'>('loading');
+  protected readonly membersError = signal('');
+
+  /** Member names by user id, for the assignee column. */
+  private readonly memberNames = computed(
+    () => new Map<string, string>(this.members().map((member) => [member.userId, member.name])),
+  );
+
+  protected readonly shownMembers = computed(() => this.members().slice(0, PEOPLE_LIMIT));
+  protected readonly hiddenMemberCount = computed(() => Math.max(0, this.members().length - PEOPLE_LIMIT));
+  protected readonly currentUserId = computed(() => this.currentUser.user().id);
 
   private nextPage = 1;
 
@@ -117,8 +132,26 @@ export class WorkspaceBoard {
     effect(() => {
       const id = this.workspaceId();
 
-      if (id) untracked(() => void this.loadMemberNames(id));
+      if (!id) return;
+
+      untracked(() => {
+        // Another workspace: never show the previous one's people while this one loads.
+        this.members.set([]);
+        void this.loadMembers(id);
+      });
     });
+  }
+
+  protected retryMembers(): void {
+    const id = this.workspaceId();
+
+    if (id) void this.loadMembers(id);
+  }
+
+  protected initials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+
+    return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
   }
 
   protected onStatusChange(event: Event): void {
@@ -196,13 +229,24 @@ export class WorkspaceBoard {
     this.nextPage = result.value.page + 1;
   }
 
-  private async loadMemberNames(workspaceId: string): Promise<void> {
+  private async loadMembers(workspaceId: string): Promise<void> {
+    this.membersState.set('loading');
+    this.membersError.set('');
+
     const result = await this.workspaceService.loadMembers(workspaceId);
 
-    // Names are a nicety: without them the column says "Teammate", and the task list still works.
-    if (result.ok && workspaceId === this.workspaceId()) {
-      this.memberNames.set(new Map(result.value.map((member) => [member.userId, member.name])));
+    // The page moved to another workspace while this was in flight.
+    if (workspaceId !== this.workspaceId()) return;
+
+    if (!result.ok) {
+      // Without them the assignee column says "Teammate" and the task list still works.
+      this.membersError.set(result.error.message);
+      this.membersState.set('error');
+      return;
     }
+
+    this.members.set(result.value);
+    this.membersState.set('ready');
   }
 
   private query(status: StatusFilter, assignee: AssigneeFilter, page: number): TaskListQuery {
