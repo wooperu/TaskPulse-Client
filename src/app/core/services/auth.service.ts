@@ -20,6 +20,7 @@ import { parseApiError } from '../http/api-error';
 import { ApiResult, toApiResult } from '../http/api-result';
 import { CurrentUserService } from './current-user.service';
 import { WorkspaceService } from './workspace.service';
+import { NotificationService } from './notification.service';
 import { AuthTokens, TokenStorage } from './token-storage.service';
 
 export type LoginFailureReason =
@@ -81,6 +82,7 @@ export class AuthService {
   private readonly tokens = inject(TokenStorage);
   private readonly currentUser = inject(CurrentUserService);
   private readonly workspaces = inject(WorkspaceService);
+  private readonly notifications = inject(NotificationService);
 
   /** The refresh call in flight, shared by everyone who needs it (see refreshSession). */
   private refreshing: Promise<RefreshResult> | null = null;
@@ -243,6 +245,7 @@ export class AuthService {
     this.tokens.clear();
     this.currentUser.clear();
     this.workspaces.clear();
+    this.notifications.clear();
   }
 
   private async requestNewTokens(): Promise<RefreshResult> {

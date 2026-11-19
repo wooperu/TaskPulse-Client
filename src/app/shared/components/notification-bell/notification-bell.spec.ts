@@ -4,6 +4,13 @@ import { Router, provideRouter } from '@angular/router';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { NotificationBell } from './notification-bell';
 import { NotificationService } from '../../../core/services/notification.service';
+import { MOCK_NOTIFICATIONS } from '../../../core/services/mock-notifications';
+import {
+  flushNotifications,
+  flushRead,
+  flushReadAll,
+  notificationHttpTestProviders,
+} from '../../../testing/seed-notifications';
 
 @Component({ selector: 'x-stub', template: 'stub' }) class Stub {}
 @Component({ selector: 'x-host', imports: [NotificationBell], template: '<app-notification-bell /><button id="outside">outside</button>' }) class Host {}
@@ -15,9 +22,14 @@ describe('NotificationBell', () => {
   const flush = async () => { fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges(); };
 
   beforeEach(async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter([{ path: '**', component: Stub }])] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([{ path: '**', component: Stub }]), ...notificationHttpTestProviders()],
+    });
     fixture = TestBed.createComponent(Host);
     document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    // The bell asks for the list when it is created; answer it before waiting for the view to settle.
+    await flushNotifications();
     await flush();
   });
   afterEach(() => { document.body.innerHTML = ''; });
@@ -64,21 +76,36 @@ describe('NotificationBell', () => {
     expect(q('#notification-panel')).toBeNull();
   });
 
-  it('opening a notification marks it read and closes the panel', async () => {
+  it('opening a notification closes the panel, navigates, and marks it read once the API confirms', async () => {
     button().click(); await flush();
-    (q('#notification-panel ul a') as HTMLElement).click(); await flush();
+    (q('#notification-panel ul a') as HTMLElement).click();
+    await flushRead('n-1');
+    await flush();
     expect(q('#notification-panel')).toBeNull();
     expect(TestBed.inject(Router).url).toBe('/workspaces/ws-product/tasks/mock-4'); // the click still navigates
     expect(button().getAttribute('aria-label')).toBe('Notifications, 3 unread');
     expect(TestBed.inject(NotificationService).notifications().find((n) => n.id === 'n-1')!.isRead).toBe(true);
   });
 
-  it('opening a notification navigates there; aria-controls only points at a panel that exists', async () => {
+  it('keeps the badge when the API refuses to mark it read', async () => {
+    button().click(); await flush();
+    (q('#notification-panel ul a') as HTMLElement).click();
+    const { HttpTestingController } = await import('@angular/common/http/testing');
+    const { apiUrl } = await import('../../../core/config/api.config');
+    TestBed.inject(HttpTestingController)
+      .expectOne(apiUrl('/api/notifications/n-1/read'))
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await flush();
+    expect(button().getAttribute('aria-label')).toBe('Notifications, 4 unread');
+  });
+
+  it('aria-controls only points at a panel that exists', async () => {
     expect(button().getAttribute('aria-controls')).toBeNull();
     button().click(); await flush();
     expect(button().getAttribute('aria-controls')).toBe('notification-panel');
-    (q('#notification-panel ul a') as HTMLElement).click(); await flush();
-    await fixture.whenStable();
+    (q('#notification-panel ul a') as HTMLElement).click();
+    await flushRead('n-1');
+    await flush();
     expect(TestBed.inject(Router).url).toBe('/workspaces/ws-product/tasks/mock-4');
     expect(button().getAttribute('aria-controls')).toBeNull();
   });
@@ -89,11 +116,13 @@ describe('NotificationBell', () => {
     expect(q('#notification-panel')).toBeNull();
   });
 
-  it('mark all as read clears the badge and disables itself', async () => {
+  it('mark all as read clears the badge and disables itself once the API confirms', async () => {
     button().click(); await flush();
     const markAll = () => Array.from(fixture.nativeElement.querySelectorAll('#notification-panel button')).find((b) => (b as HTMLElement).textContent!.includes('Mark all')) as HTMLButtonElement;
     expect(markAll().disabled).toBe(false);
-    markAll().click(); await flush();
+    markAll().click();
+    await flushReadAll(4);
+    await flush();
     expect(button().getAttribute('aria-label')).toBe('Notifications');
     expect(button().textContent!.trim()).toBe('');
     expect(markAll().disabled).toBe(true);
@@ -109,8 +138,13 @@ describe('NotificationBell', () => {
   });
 
   it('caps a large badge at 9+', async () => {
-    const service = TestBed.inject(NotificationService) as unknown as { state: { update(f: (l: object[]) => object[]): void } };
-    service.state.update((list) => [...list, ...Array.from({ length: 8 }, (_, i) => ({ id: `x-${i}`, type: 'task-assigned', title: 't', message: 'm', workspaceId: null, targetType: 'none', targetId: null, isRead: false, createdAt: new Date().toISOString(), readAt: null }))]);
+    const extra = Array.from({ length: 8 }, (_, i) => ({
+      id: `x-${i}`, type: 'task-assigned' as const, title: 't', message: 'm', workspaceId: null,
+      targetType: 'none' as const, targetId: null, isRead: false, createdAt: new Date().toISOString(), readAt: null,
+    }));
+    const loading = TestBed.inject(NotificationService).load();
+    await flushNotifications([...MOCK_NOTIFICATIONS, ...extra]);
+    await loading;
     await flush();
     expect(button().textContent!.trim()).toBe('9+');
     expect(button().getAttribute('aria-label')).toBe('Notifications, 12 unread');
