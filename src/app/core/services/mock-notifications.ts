@@ -1,6 +1,6 @@
 import { AppNotification } from '../../shared/models/notification.model';
 
-/** Sample data only. Delete when NotificationService is backed by the API. */
+/** Connected to the Back End already */
 
 function hoursAgo(hours: number): string {
   return new Date(Date.now() - hours * 3_600_000).toISOString();

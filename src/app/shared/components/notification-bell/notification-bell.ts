@@ -57,6 +57,9 @@ export class NotificationBell {
   );
 
   constructor() {
+    // The bell is only on screen while signed in, so this runs once per session.
+    void this.notificationService.load();
+
     // Closes the panel when the page changes by any route (for example the browser's back button).
     inject(Router)
       .events.pipe(
@@ -75,12 +78,13 @@ export class NotificationBell {
   }
 
   protected open(notification: AppNotification): void {
-    this.notificationService.markAsRead(notification.id);
+    // The list updates once the API confirms; if it fails the notification simply stays unread.
+    void this.notificationService.markAsRead(notification.id);
     this.isOpen.set(false);
   }
 
   protected markAllAsRead(): void {
-    this.notificationService.markAllAsRead();
+    void this.notificationService.markAllAsRead();
   }
 
   protected close(): void {

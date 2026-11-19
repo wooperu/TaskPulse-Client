@@ -38,8 +38,8 @@ export class Dashboard {
   private readonly today = toLocalDateKey(this.now);
 
   protected readonly firstName = inject(CurrentUserService).user().firstName;
-  /** Invitations and notifications are not connected yet; tasks are. */
-  protected readonly isSampleData = this.memberService.isSampleData || this.notificationService.isSampleData;
+  /** Invitations are not connected yet; tasks and notifications are. */
+  protected readonly isSampleData = this.memberService.isSampleData;
   protected readonly dueSoonDays = DUE_SOON_DAYS;
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly priorityLabels = PRIORITY_LABELS;
@@ -93,7 +93,7 @@ export class Dashboard {
     })),
   );
 
-  constructor() {
+    constructor() {
     void this.myTasks.load();
     // The workspace names on the task rows come from the workspace list.
     void this.workspaceService.load();
@@ -104,7 +104,7 @@ export class Dashboard {
   }
 
   protected open(notificationId: string): void {
-    this.notificationService.markAsRead(notificationId);
+    void this.notificationService.markAsRead(notificationId);
   }
 
   private toRows(tasks: readonly Task[]) {
