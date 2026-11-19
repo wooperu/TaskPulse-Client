@@ -131,11 +131,21 @@ export class TaskApiService {
   private readonly http = inject(HttpClient);
 
   /** One page of a workspace's tasks. Filtering, sorting and paging all happen on the server. */
-  async listForWorkspace(workspaceId: string, query: TaskListQuery): Promise<ApiResult<TaskPage>> {
+  listForWorkspace(workspaceId: string, query: TaskListQuery): Promise<ApiResult<TaskPage>> {
+    return this.listPage(`/api/workspaces/${workspaceId}/tasks`, query);
+  }
+
+  /**
+   * One page of the tasks assigned to the signed-in user, across every workspace (GET /api/tasks/mine).
+   * The API filters by status, priority and search, but not by workspace.
+   */
+  listMine(query: TaskListQuery): Promise<ApiResult<TaskPage>> {
+    return this.listPage('/api/tasks/mine', query);
+  }
+
+  private async listPage(path: string, query: TaskListQuery): Promise<ApiResult<TaskPage>> {
     const result = await toApiResult(
-      this.http.get<PagedResponse<TaskResponse>>(apiUrl(`/api/workspaces/${workspaceId}/tasks`), {
-        params: toHttpParams(query),
-      }),
+      this.http.get<PagedResponse<TaskResponse>>(apiUrl(path), { params: toHttpParams(query) }),
     );
 
     if (!result.ok) return result;

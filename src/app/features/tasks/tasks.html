@@ -2,29 +2,14 @@
   <header>
     <h1 class="text-2xl font-semibold tracking-tight">My tasks</h1>
     <p class="mt-1 text-sm text-zinc-500">
-      Tasks assigned to you or created by you, across all workspaces.
+      Tasks assigned to you, across all workspaces.
       @if (overdueCount() > 0) {
         <span class="font-medium text-red-700">{{ overdueCount() }} overdue.</span>
       }
     </p>
   </header>
 
-  @if (isSampleData) {
-    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-      Showing sample data. Tasks are not connected to your account yet.
-    </p>
-  }
-
   <div class="flex flex-wrap items-end gap-4" role="group" aria-label="Filter tasks">
-    <div>
-      <label for="relation-filter" class="mb-1 block text-xs font-medium text-zinc-600">Show</label>
-      <select id="relation-filter" [value]="relationFilter()" (change)="onRelationChange($event)" class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200">
-        <option value="all">All my tasks</option>
-        <option value="assigned">Assigned to me</option>
-        <option value="created">Created by me</option>
-      </select>
-    </div>
-
     <div>
       <label for="status-filter" class="mb-1 block text-xs font-medium text-zinc-600">Status</label>
       <select id="status-filter" [value]="statusFilter()" (change)="onStatusChange($event)" class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200">
@@ -57,26 +42,62 @@
     }
   </div>
 
+  @if (errorMessage()) {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+    >
+      <span>{{ errorMessage() }}</span>
+      <button
+        type="button"
+        (click)="reload()"
+        class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+      >
+        Try again
+      </button>
+    </div>
+  }
+
   <p role="status" class="text-sm text-zinc-500">
-    Showing {{ rows().length }} of {{ total() }} {{ total() === 1 ? 'task' : 'tasks' }}
+    @if (loading()) {
+      Loading tasks…
+    } @else if (!errorMessage() || rows().length > 0) {
+      @if (workspaceFilter() === 'all') {
+        Showing {{ rows().length }} of {{ totalCount() }} {{ totalCount() === 1 ? 'task' : 'tasks' }}
+      } @else {
+        Showing {{ rows().length }} of {{ loadedCount() }} loaded {{ loadedCount() === 1 ? 'task' : 'tasks' }}
+      }
+    }
   </p>
 
-  @if (total() === 0) {
-    <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-      <h2 class="text-base font-medium">No tasks yet</h2>
-      <p class="mt-1 text-sm text-zinc-500">Tasks assigned to you or created by you will show up here.</p>
-      <a
-        routerLink="/workspaces"
-        class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
-      >
-        Go to my workspaces
-      </a>
-    </section>
+  @if (workspaceFilterIsPartial()) {
+    <p role="note" class="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">
+      The workspace filter only covers the {{ loadedCount() }} tasks loaded so far. Load more to include the rest.
+    </p>
+  }
+
+  @if (loading()) {
+    <!-- The status line above announces the loading state. -->
   } @else if (rows().length === 0) {
-    <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
-      <h2 class="text-base font-medium">No tasks match these filters</h2>
-      <p class="mt-1 text-sm text-zinc-500">Try a different status, workspace or filter.</p>
-    </section>
+    @if (errorMessage()) {
+      <!-- The alert above explains why nothing is listed. -->
+    } @else if (!hasActiveFilters() && totalCount() === 0) {
+      <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
+        <h2 class="text-base font-medium">No tasks yet</h2>
+        <p class="mt-1 text-sm text-zinc-500">Tasks assigned to you will show up here.</p>
+        <a
+          routerLink="/workspaces"
+          class="mt-5 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+        >
+          Go to my workspaces
+        </a>
+      </section>
+    } @else {
+      <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
+        <h2 class="text-base font-medium">No tasks match these filters</h2>
+        <p class="mt-1 text-sm text-zinc-500">Try a different status or workspace.</p>
+      </section>
+    }
   } @else {
     <ul class="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white" aria-label="My tasks">
       @for (row of rows(); track row.task.id) {
@@ -100,12 +121,10 @@
                 <span> (archived)</span>
               }
               ·
-              @if (row.assignedToMe && row.createdByMe) {
+              @if (row.createdByMe) {
                 Created by you, assigned to you
-              } @else if (row.assignedToMe) {
-                Assigned to you by {{ row.creatorLabel }}
               } @else {
-                Created by you · {{ row.assigneeLabel === 'Unassigned' ? 'Unassigned' : 'Assigned to ' + row.assigneeLabel }}
+                Assigned to you
               }
               ·
               @if (row.task.dueDate) {
@@ -117,9 +136,6 @@
           </div>
 
           <div class="flex shrink-0 flex-wrap items-center gap-2">
-            @if (row.overdue) {
-              <span class="rounded-full border px-2 py-0.5 text-xs" [class]="overdueChip">Overdue</span>
-            }
             <span class="rounded-full border px-2 py-0.5 text-xs" [class]="statusChip[row.task.status]">
               {{ statusLabels[row.task.status] }}
             </span>
@@ -130,5 +146,18 @@
         </li>
       }
     </ul>
+  }
+
+  @if (hasMore() && !loading()) {
+    <div class="flex justify-center">
+      <button
+        type="button"
+        (click)="loadMore()"
+        [disabled]="loadingMore()"
+        class="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        {{ loadingMore() ? 'Loading…' : 'Load more tasks' }}
+      </button>
+    </div>
   }
 </div>

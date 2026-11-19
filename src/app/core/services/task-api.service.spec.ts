@@ -107,6 +107,64 @@ describe('TaskApiService', () => {
     });
   });
 
+  describe('listMine', () => {
+    const ROW = {
+      id: 't-1',
+      workspaceId: 'w-1',
+      title: 'Fix login redirect',
+      description: null,
+      dueDate: '2026-11-20T12:00:00Z',
+      status: 'Overdue',
+      priority: 'Urgent',
+      assignedTo: 'u-1',
+      createdBy: 'u-2',
+      createdAtUtc: '2026-11-01T09:00:00Z',
+    };
+
+    it('asks /api/tasks/mine with the filters, and no workspace parameter', async () => {
+      const loading = service.listMine({ status: 'Pending', sortBy: 'DueDate', page: 3, pageSize: 50 });
+
+      await tick();
+      const request = http.expectOne((req) => req.url === apiUrl('/api/tasks/mine'));
+      expect(request.request.method).toBe('GET');
+      expect(request.request.params.get('status')).toBe('Pending');
+      expect(request.request.params.get('sortBy')).toBe('DueDate');
+      expect(request.request.params.get('page')).toBe('3');
+      expect(request.request.params.get('pageSize')).toBe('50');
+      expect(request.request.params.keys().sort()).toEqual(['page', 'pageSize', 'sortBy', 'status']);
+      request.flush({ items: [ROW], page: 3, pageSize: 50, totalCount: 101, totalPages: 3 });
+
+      const result = await loading;
+      expect(result.ok && result.value).toMatchObject({ page: 3, totalCount: 101, hasMore: false });
+      expect(result.ok && result.value.items[0]).toMatchObject({ id: 't-1', status: 'overdue', assigneeId: 'u-1' });
+    });
+
+    it('reports that more pages remain, and can be used just to count (page size 1)', async () => {
+      const loading = service.listMine({ status: 'Overdue', page: 1, pageSize: 1 });
+
+      await tick();
+      http.expectOne((req) => req.url === apiUrl('/api/tasks/mine')).flush({
+        items: [ROW],
+        page: 1,
+        pageSize: 1,
+        totalCount: 7,
+        totalPages: 7,
+      });
+
+      const result = await loading;
+      expect(result.ok && result.value).toMatchObject({ totalCount: 7, hasMore: true });
+    });
+
+    it('reports a failure instead of throwing', async () => {
+      const loading = service.listMine({});
+
+      await tick();
+      http.expectOne((req) => req.url === apiUrl('/api/tasks/mine')).flush(null, { status: 500, statusText: 'Server Error' });
+
+      expect(await loading).toMatchObject({ ok: false, error: { kind: 'server' } });
+    });
+  });
+
   describe('getDetails', () => {
     it('returns the task with its names and comments', async () => {
       const loading = service.getDetails('t-1');
