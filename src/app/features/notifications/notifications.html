@@ -6,16 +6,10 @@
         {{ unreadCount() === 0 ? 'You are all caught up.' : unreadCount() + ' unread' }}
       </p>
     </div>
-    <button type="button" (click)="markAllAsRead()" [disabled]="unreadCount() === 0" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600">
+    <button type="button" (click)="markAllAsRead()" [disabled]="unreadCount() === 0 || busy()" class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600">
       Mark all as read
     </button>
   </header>
-
-  @if (isSampleData) {
-    <p role="note" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-      Showing sample data. Changes aren't saved and are lost on reload.
-    </p>
-  }
 
   <div role="group" aria-label="Filter notifications" class="flex gap-2">
     <button
@@ -25,7 +19,7 @@
       class="rounded-full border px-3 py-1 text-sm focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
       [class]="filter() === 'all' ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50'"
     >
-      All ({{ total() }})
+      All ({{ total() }}{{ hasMore() ? '+' : '' }})
     </button>
     <button
       type="button"
@@ -41,7 +35,27 @@
   <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
   <p role="status" class="text-sm text-zinc-700">{{ statusMessage() }}</p>
 
-  @if (total() === 0) {
+  @if (loadError()) {
+    <div
+      role="alert"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700"
+    >
+      <span>{{ loadError() }}</span>
+      <button
+        type="button"
+        (click)="retry()"
+        class="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+      >
+        Try again
+      </button>
+    </div>
+  }
+
+  @if (!loaded()) {
+    @if (!loadError()) {
+      <p class="text-sm text-zinc-500">Loading your notifications…</p>
+    }
+  } @else if (total() === 0) {
     <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
       <h2 class="text-base font-medium">No notifications yet</h2>
       <p class="mt-1 text-sm text-zinc-500">Assignments, comments and invitations will show up here.</p>
@@ -75,12 +89,25 @@
             </div>
           </div>
           @if (!row.notification.isRead) {
-            <button type="button" [id]="'mark-read-' + row.notification.id" (click)="markAsRead(row.notification)" class="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2">
+            <button type="button" [id]="'mark-read-' + row.notification.id" (click)="markAsRead(row.notification)" [disabled]="busy()" class="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
               Mark as read<span class="sr-only">: {{ row.notification.title }}</span>
             </button>
           }
         </li>
       }
     </ul>
+
+    @if (hasMore()) {
+      <div class="text-center">
+        <button
+          type="button"
+          (click)="loadMore()"
+          [disabled]="loading()"
+          class="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ loading() ? 'Loading…' : 'Load more' }}
+        </button>
+      </div>
+    }
   }
 </div>
