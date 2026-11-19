@@ -34,6 +34,17 @@ export function toApiStatus(status: TaskDisplayStatus): ApiTaskStatus {
   return API_STATUSES[status];
 }
 
+const API_PRIORITIES: Readonly<Record<TaskPriority, ApiTaskPriority>> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  urgent: 'Urgent',
+};
+
+export function toApiPriority(priority: TaskPriority): ApiTaskPriority {
+  return API_PRIORITIES[priority];
+}
+
 /** The API sends UTC timestamps, sometimes without a zone suffix; those are UTC too. */
 export function parseUtc(iso: string): Date {
   return new Date(/(Z|[+-]\d{2}:?\d{2})$/i.test(iso) ? iso : `${iso}Z`);
@@ -59,6 +70,7 @@ export function toTask(task: TaskResponse): Task {
     priority: PRIORITIES[task.priority],
     assigneeId: task.assignedTo,
     dueDate: toDateKey(task.dueDate),
+    dueAtUtc: task.dueDate,
     linkedDocument: null,
     createdById: task.createdBy,
     createdAt: task.createdAtUtc,
@@ -76,6 +88,7 @@ export function toTaskFromDetails(details: TaskDetailsResponse): Task {
     priority: PRIORITIES[details.priority],
     assigneeId: details.assignedTo,
     dueDate: toDateKey(details.dueDate),
+    dueAtUtc: details.dueDate,
     linkedDocument: toLinkedDocument(details.linkedDocument),
     createdById: details.createdBy,
     createdAt: details.createdAtUtc,

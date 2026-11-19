@@ -20,6 +20,22 @@
       Back to {{ workspace.name }}
     </a>
   </section>
+} @else if (loadState() === 'loading') {
+  <p role="status" class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center text-sm text-zinc-500">
+    Loading task…
+  </p>
+} @else if (loadState() === 'error') {
+  <section role="alert" class="rounded-xl border border-red-200 bg-red-50 px-6 py-10 text-center">
+    <h1 class="text-base font-medium text-red-800">We couldn't load this task</h1>
+    <p class="mt-1 text-sm text-red-700">{{ loadError() }}</p>
+    <button
+      type="button"
+      (click)="reload()"
+      class="mt-5 inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+    >
+      Try again
+    </button>
+  </section>
 } @else if (isEdit && !existing) {
   <section class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
     <h1 class="text-base font-medium">Task not found</h1>
@@ -55,15 +71,6 @@
       <p class="mt-1 text-sm text-zinc-500">in {{ workspace.name }}</p>
     </header>
 
-    @if (isSampleData) {
-      <p
-        role="note"
-        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-      >
-        Showing sample data. Changes aren't saved and are lost on reload.
-      </p>
-    }
-
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5 rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
       <div>
         <label for="title" class="mb-1 block text-sm font-medium text-zinc-700">Title</label>
@@ -91,19 +98,28 @@
           rows="4"
           class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition placeholder:text-zinc-500 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
         ></textarea>
+        @if (descriptionError(); as message) {
+          <p class="mt-2 text-sm text-red-600">{{ message }}</p>
+        }
       </div>
 
       <div class="grid gap-5 sm:grid-cols-2">
         <div>
           <label for="dueDate" class="mb-1 block text-sm font-medium text-zinc-700">
-            Due date <span class="font-normal text-zinc-500">(optional)</span>
+            Due date
           </label>
           <input
             id="dueDate"
             type="date"
             formControlName="dueDate"
+            required
+            [attr.aria-invalid]="dueDateError() !== null"
+            [attr.aria-describedby]="dueDateError() ? 'dueDate-error' : null"
             class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-hidden transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-200"
           />
+          @if (dueDateError(); as message) {
+            <p id="dueDate-error" class="mt-2 text-sm text-red-600">{{ message }}</p>
+          }
         </div>
 
         <div>
@@ -180,9 +196,10 @@
       <div class="flex flex-wrap items-center gap-3 pt-1">
         <button
           type="submit"
-          class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+          [disabled]="saving()"
+          class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {{ isEdit ? 'Save changes' : 'Create task' }}
+          {{ saving() ? 'Saving…' : isEdit ? 'Save changes' : 'Create task' }}
         </button>
         <a
           [routerLink]="existing ? ['/workspaces', workspace.id, 'tasks', existing.id] : ['/workspaces', workspace.id]"
@@ -193,7 +210,7 @@
       </div>
 
       <!-- Live region stays in the DOM so screen readers announce text changes reliably. -->
-      <p role="status" class="text-sm text-red-600">{{ saveError() }}</p>
+      <p role="alert" class="text-sm text-red-600">{{ saveError() }}</p>
     </form>
   </div>
 }

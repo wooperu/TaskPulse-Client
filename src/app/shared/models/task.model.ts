@@ -38,6 +38,12 @@ export interface Task {
   assigneeId: string | null;
   /** Date-only 'YYYY-MM-DD' (no time zone), or null when there is no due date. */
   dueDate: string | null;
+  /**
+   * The exact due instant from the API (ISO 8601, UTC). The edit form sends it back unchanged when the
+   * person did not touch the date, because the API treats any different instant as a changed due date.
+   * Absent on sample data.
+   */
+  dueAtUtc?: string;
   linkedDocument: LinkedDocument | null;
   createdById: string;
   /** ISO 8601 timestamps. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TaskDetailsResponse, TaskResponse } from '../../shared/models/api/task.api';
 import { isOverdue } from '../../shared/utils/task-rules';
-import { parseUtc, toApiStatus, toComment, toDateKey, toTask, toTaskFromDetails } from './task-mappers';
+import { parseUtc, toApiPriority, toApiStatus, toComment, toDateKey, toTask, toTaskFromDetails } from './task-mappers';
 
 const ROW: TaskResponse = {
   id: 't-1',
@@ -27,6 +27,7 @@ describe('task mappers', () => {
       priority: 'high',
       assigneeId: 'u-2',
       dueDate: toDateKey('2026-11-20T12:00:00Z'),
+      dueAtUtc: '2026-11-20T12:00:00Z',
       linkedDocument: null,
       createdById: 'u-1',
       createdAt: '2026-11-01T09:00:00Z',
@@ -48,6 +49,11 @@ describe('task mappers', () => {
   it('maps UI statuses back to API statuses', () => {
     expect(toApiStatus('pending')).toBe('Pending');
     expect(toApiStatus('overdue')).toBe('Overdue');
+  });
+
+  it('maps UI priorities back to API priorities', () => {
+    expect(toApiPriority('urgent')).toBe('Urgent');
+    expect(toApiPriority('low')).toBe('Low');
   });
 
   it('treats a timestamp without a zone as UTC', () => {
