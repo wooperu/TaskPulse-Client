@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { apiUrl } from '../config/api.config';
-import { TaskApiService } from './task-api.service';
+import { describeSaveFailure, SaveResult, TaskApiService, TaskDetailsInput } from './task-api.service';
 
 const NO_CONTENT = { status: 204, statusText: 'No Content' };
 
@@ -267,6 +267,202 @@ describe('TaskApiService', () => {
       request.flush(null, NO_CONTENT);
 
       expect((await deleting).ok).toBe(true);
+    });
+  });
+
+  describe('saving a task', () => {
+    const DETAILS: TaskDetailsInput = {
+      title: 'Write spec',
+      description: null,
+      priority: 'high',
+      dueDateIso: '2026-11-20T15:59:59.999Z',
+    };
+    const DOCUMENT = { url: 'https://docs.google.com/document/d/abc', label: 'Spec' };
+    const CREATED = {
+      id: 't-9',
+      workspaceId: 'w-1',
+      title: 'Write spec',
+      description: null,
+      dueDate: '2026-11-20T15:59:59.999Z',
+      status: 'Pending',
+      priority: 'High',
+      assignedTo: null,
+      createdBy: 'u-1',
+      createdAtUtc: '2026-11-16T10:00:00Z',
+    };
+    const CREATED_INIT = { status: 201, statusText: 'Created' };
+
+    function failure(result: SaveResult) {
+      if (result.ok) throw new Error('expected a failure');
+      return result;
+    }
+
+    describe('create', () => {
+      it('creates the task with the API field names and priority casing', async () => {
+        const saving = service.create('w-1', DETAILS, {});
+
+        await tick();
+        const request = http.expectOne(apiUrl('/api/workspaces/w-1/tasks'));
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({
+          title: 'Write spec',
+          dueDate: '2026-11-20T15:59:59.999Z',
+          priority: 'High',
+          description: null,
+        });
+        request.flush(CREATED, CREATED_INIT);
+
+        expect(await saving).toEqual({ ok: true, taskId: 't-9' });
+      });
+
+      it('then assigns and attaches the document, in that order, to the new task', async () => {
+        const saving = service.create('w-1', DETAILS, { assigneeId: 'u-2', document: DOCUMENT });
+
+        await tick();
+        http.expectOne(apiUrl('/api/workspaces/w-1/tasks')).flush(CREATED, CREATED_INIT);
+        await tick();
+        const assign = http.expectOne(apiUrl('/api/tasks/t-9/assign'));
+        expect(assign.request.method).toBe('POST');
+        expect(assign.request.body).toEqual({ assigneeId: 'u-2' });
+        assign.flush(null, NO_CONTENT);
+        await tick();
+        const document = http.expectOne(apiUrl('/api/tasks/t-9/document'));
+        expect(document.request.method).toBe('PUT');
+        expect(document.request.body).toEqual({ url: DOCUMENT.url, label: 'Spec' });
+        document.flush(null, NO_CONTENT);
+
+        expect(await saving).toEqual({ ok: true, taskId: 't-9' });
+      });
+
+      it('sends no extra requests when there is no assignee or document', async () => {
+        const saving = service.create('w-1', DETAILS, { assigneeId: null, document: null });
+
+        await tick();
+        http.expectOne(apiUrl('/api/workspaces/w-1/tasks')).flush(CREATED, CREATED_INIT);
+
+        expect((await saving).ok).toBe(true);
+        await tick();
+        http.expectNone((req) => req.url.startsWith(apiUrl('/api/tasks/')));
+      });
+
+      it('reports a failed create with nothing saved, and sends no follow-up requests', async () => {
+        const saving = service.create('w-1', DETAILS, { assigneeId: 'u-2', document: DOCUMENT });
+
+        await tick();
+        http.expectOne(apiUrl('/api/workspaces/w-1/tasks')).flush(
+          ...problem('Invalid.DueDate', 'Due date cannot be in the past.'),
+        );
+
+        const result = failure(await saving);
+        expect(result).toMatchObject({ step: 'details', taskId: null, saved: [], notAttempted: ['assignee', 'document'] });
+        expect(describeSaveFailure(result, true)).toBe('Due date cannot be in the past.');
+        await tick();
+        http.expectNone((req) => req.url.startsWith(apiUrl('/api/tasks/')));
+      });
+
+      it('keeps the new task id when a later step fails, and says what was not saved', async () => {
+        const saving = service.create('w-1', DETAILS, { assigneeId: 'u-2', document: DOCUMENT });
+
+        await tick();
+        http.expectOne(apiUrl('/api/workspaces/w-1/tasks')).flush(CREATED, CREATED_INIT);
+        await tick();
+        http.expectOne(apiUrl('/api/tasks/t-9/assign')).flush(
+          ...problem('Task.NotAllowed', 'You are not allowed to do that.', 403),
+        );
+
+        const result = failure(await saving);
+        expect(result).toMatchObject({ step: 'assignee', taskId: 't-9', saved: ['details'], notAttempted: ['document'] });
+        expect(describeSaveFailure(result, true)).toBe(
+          'The task was created, but the assignee could not be saved: You are not allowed to do that. The document link was not saved.',
+        );
+        await tick();
+        http.expectNone(apiUrl('/api/tasks/t-9/document'));
+      });
+    });
+
+    describe('update', () => {
+      it('sends only the details when only they changed', async () => {
+        const saving = service.update('t-1', { details: DETAILS });
+
+        await tick();
+        const request = http.expectOne(apiUrl('/api/tasks/t-1'));
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({
+          title: 'Write spec',
+          dueDate: '2026-11-20T15:59:59.999Z',
+          priority: 'High',
+          description: null,
+        });
+        request.flush(null, NO_CONTENT);
+
+        expect(await saving).toEqual({ ok: true, taskId: 't-1' });
+      });
+
+      it('unassigns and removes the document with DELETE requests', async () => {
+        const saving = service.update('t-1', { details: DETAILS, assigneeId: null, document: null });
+
+        await tick();
+        http.expectOne(apiUrl('/api/tasks/t-1')).flush(null, NO_CONTENT);
+        await tick();
+        const unassign = http.expectOne(apiUrl('/api/tasks/t-1/assignee'));
+        expect(unassign.request.method).toBe('DELETE');
+        unassign.flush(null, NO_CONTENT);
+        await tick();
+        const remove = http.expectOne(apiUrl('/api/tasks/t-1/document'));
+        expect(remove.request.method).toBe('DELETE');
+        remove.flush(null, NO_CONTENT);
+
+        expect((await saving).ok).toBe(true);
+      });
+
+      it('skips the details request when only the assignee changed', async () => {
+        const saving = service.update('t-1', { assigneeId: 'u-3' });
+
+        await tick();
+        http.expectOne(apiUrl('/api/tasks/t-1/assign')).flush(null, NO_CONTENT);
+
+        expect((await saving).ok).toBe(true);
+        http.expectNone(apiUrl('/api/tasks/t-1'));
+      });
+
+      it('sends nothing when nothing changed', async () => {
+        const result = await service.update('t-1', {});
+
+        expect(result).toEqual({ ok: true, taskId: 't-1' });
+        http.verify();
+      });
+
+      it('stops at the first failure and says exactly what was and was not saved', async () => {
+        const saving = service.update('t-1', { details: DETAILS, assigneeId: 'u-3', document: DOCUMENT });
+
+        await tick();
+        http.expectOne(apiUrl('/api/tasks/t-1')).flush(null, NO_CONTENT);
+        await tick();
+        http.expectOne(apiUrl('/api/tasks/t-1/assign')).flush(
+          ...problem('Invalid.Assignee', 'Cannot assign the same person twice on a task.'),
+        );
+
+        const result = failure(await saving);
+        expect(result).toMatchObject({ step: 'assignee', taskId: 't-1', saved: ['details'], notAttempted: ['document'] });
+        expect(describeSaveFailure(result, false)).toBe(
+          'Your changes were only partly saved. Saved: task details. The assignee could not be saved: Cannot assign the same person twice on a task. The document link was not saved.',
+        );
+        await tick();
+        http.expectNone(apiUrl('/api/tasks/t-1/document'));
+      });
+
+      it('reports a failure of the first step as a plain error, because nothing was saved', async () => {
+        const saving = service.update('t-1', { details: DETAILS, assigneeId: 'u-3' });
+
+        await tick();
+        http.expectOne(apiUrl('/api/tasks/t-1')).flush(...problem('Invalid.DueDate', 'Due date cannot be in the past.'));
+
+        const result = failure(await saving);
+        expect(result).toMatchObject({ step: 'details', saved: [], notAttempted: ['assignee'] });
+        expect(describeSaveFailure(result, false)).toBe('Due date cannot be in the past.');
+        await tick();
+        http.expectNone(apiUrl('/api/tasks/t-1/assign'));
+      });
     });
   });
 });
