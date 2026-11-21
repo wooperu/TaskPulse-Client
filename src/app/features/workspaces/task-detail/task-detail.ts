@@ -10,12 +10,7 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import {
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { CurrentUserService } from '../../../core/services/current-user.service';
@@ -29,13 +24,14 @@ import {
   STATUS_LABELS,
 } from '../../../shared/models/task-display';
 import { isOverdue } from '../../../shared/utils/task-rules';
+import { TaskDocuments } from '../task-documents/task-documents';
 
 /** loading: first request. not-found: the API has no such task for this user. error: any other failure. */
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
 
 @Component({
   selector: 'app-task-detail',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, TaskDocuments],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './task-detail.css',
   templateUrl: './task-detail.html',
@@ -152,7 +148,8 @@ export class TaskDetail {
     const control = this.commentForm.controls.commentBody;
 
     if (!control.touched) return null;
-    if (control.hasError('required') || control.hasError('pattern')) return 'Write a comment first.';
+    if (control.hasError('required') || control.hasError('pattern'))
+      return 'Write a comment first.';
     if (control.hasError('maxlength')) return 'Maximum 500 characters.';
     return null;
   }
@@ -172,7 +169,10 @@ export class TaskDetail {
     this.errorMessage.set('');
 
     this.busy.set(true);
-    const result = await this.taskApi.addComment(task.id, this.commentForm.controls.commentBody.value);
+    const result = await this.taskApi.addComment(
+      task.id,
+      this.commentForm.controls.commentBody.value,
+    );
     this.busy.set(false);
 
     if (!result.ok) {
@@ -205,7 +205,9 @@ export class TaskDetail {
     }
 
     this.details.update((current) =>
-      current ? { ...current, comments: current.comments.filter((item) => item.id !== commentId) } : current,
+      current
+        ? { ...current, comments: current.comments.filter((item) => item.id !== commentId) }
+        : current,
     );
     this.statusMessage.set('Comment deleted.');
     // The delete button that had focus is gone, so move focus somewhere sensible.
@@ -213,7 +215,10 @@ export class TaskDetail {
   }
 
   /** Sends a status change, then reloads the task so the page shows what the API now says. */
-  private async change(action: (taskId: string) => Promise<ApiResult>, message: string): Promise<void> {
+  private async change(
+    action: (taskId: string) => Promise<ApiResult>,
+    message: string,
+  ): Promise<void> {
     const task = this.task();
 
     if (!task || this.busy()) return;

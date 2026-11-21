@@ -1,5 +1,12 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -73,7 +80,9 @@ export class TaskEdit {
   protected readonly loadState = signal<LoadState>(this.isEdit ? 'loading' : 'ready');
   protected readonly loadError = signal('');
 
-  protected readonly workspace = this.workspaceService.getById(this.params.get('workspaceId') ?? '');
+  protected readonly workspace = this.workspaceService.getById(
+    this.params.get('workspaceId') ?? '',
+  );
 
   private readonly editedTask = signal<Task | null>(null);
   private readonly memberList = signal<readonly { id: string; name: string }[]>([]);
@@ -91,7 +100,9 @@ export class TaskEdit {
   /** What the form was filled from. Changes are measured against it, and it is refreshed after a partial save. */
   private original: Task | null = null;
 
-  private readonly dueDateValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  private readonly dueDateValidator: ValidatorFn = (
+    control: AbstractControl,
+  ): ValidationErrors | null => {
     const value = typeof control.value === 'string' ? control.value : '';
 
     if (!value) return { required: true };
@@ -105,7 +116,10 @@ export class TaskEdit {
       nonNullable: true,
       validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)],
     }),
-    description: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(2000)] }),
+    description: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(2000)],
+    }),
     dueDate: new FormControl('', { nonNullable: true, validators: [this.dueDateValidator] }),
     priority: new FormControl<TaskPriority>('medium', { nonNullable: true }),
     assigneeId: new FormControl('', { nonNullable: true }),
@@ -163,7 +177,7 @@ export class TaskEdit {
 
     if (control.hasError('past')) {
       return this.original && control.value === this.original.dueDate
-        ? "This task is past due. Choose today or a later date to change its title."
+        ? 'This task is past due. Choose today or a later date to change its title.'
         : 'Choose today or a later date.';
     }
 
@@ -179,7 +193,7 @@ export class TaskEdit {
         case 'https':
           return 'The link must start with https://.';
         case 'host':
-          return "This site isn't accepted. Use a Google Docs, Microsoft 365, OneDrive or GitHub link.";
+          return "This site isn't accepted. Use a Google Docs/Drive, Microsoft 365, OneDrive or GitHub link.";
         default:
           return 'Enter a valid web address, for example https://docs.google.com/document/d/...';
       }
@@ -222,12 +236,16 @@ export class TaskEdit {
     const title = value.title.trim();
     const description = value.description.trim();
     const url = value.document.url.trim();
-    const document: LinkedDocument | null = url ? { url, label: value.document.label.trim() } : null;
+    const document: LinkedDocument | null = url
+      ? { url, label: value.document.label.trim() }
+      : null;
     const assigneeId = value.assigneeId || null;
 
     // An untouched date keeps its exact instant; a chosen one means the end of that day.
     const dueDateIso =
-      original?.dueAtUtc && value.dueDate === original.dueDate ? original.dueAtUtc : dueDateToIso(value.dueDate);
+      original?.dueAtUtc && value.dueDate === original.dueDate
+        ? original.dueAtUtc
+        : dueDateToIso(value.dueDate);
     const details: TaskDetailsInput = {
       title,
       description: description || null,
@@ -291,14 +309,19 @@ export class TaskEdit {
   private dueDateIsExempt(value: string): boolean {
     const original = this.original;
 
-    return original !== null && value === original.dueDate && this.form.controls.title.value.trim() === original.title;
+    return (
+      original !== null &&
+      value === original.dueDate &&
+      this.form.controls.title.value.trim() === original.title
+    );
   }
 
   private async loadMembers(workspaceId: string): Promise<void> {
     const result = await this.workspaceService.loadMembers(workspaceId);
 
     // Without the list the assignee select only offers "Unassigned"; saving everything else still works.
-    if (result.ok) this.memberList.set(result.value.map((member) => ({ id: member.userId, name: member.name })));
+    if (result.ok)
+      this.memberList.set(result.value.map((member) => ({ id: member.userId, name: member.name })));
   }
 
   private async loadExisting(taskId: string): Promise<void> {
