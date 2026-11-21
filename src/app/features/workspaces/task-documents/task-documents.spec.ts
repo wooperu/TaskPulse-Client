@@ -63,6 +63,47 @@ describe('Task linked documents', () => {
     fixture.detectChanges();
   }
 
+  it('keeps document actions labeled with decorative icons and consistent keyboard-focus styling', () => {
+    for (const action of [button('Edit link'), button('Remove link')]) {
+      expect(action.type).toBe('button');
+      expect(action.disabled).toBe(false);
+      expect(action.querySelector('.sr-only')?.textContent).toContain(taskDoc().label);
+      const icon = action.querySelector('svg')!;
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      expect(icon.getAttribute('focusable')).toBe('false');
+      for (const utility of [
+        'inline-flex',
+        'min-h-10',
+        'gap-2',
+        'rounded-lg',
+        'px-3',
+        'py-2',
+        'focus-visible:ring-2',
+      ])
+        expect(action.classList.contains(utility)).toBe(true);
+    }
+    expect(button('Edit link').classList.contains('enabled:hover:bg-zinc-50')).toBe(true);
+    expect(button('Remove link').classList.contains('enabled:hover:bg-red-50')).toBe(true);
+    expect(button('Edit link').parentElement?.classList.contains('flex-wrap')).toBe(true);
+  });
+
+  it('keeps both styled actions disabled during a pending document mutation', () => {
+    const pending = new Subject<ApiResult<void>>();
+    api.remove.mockReturnValue(pending);
+    button('Remove link').click();
+    fixture.detectChanges();
+    expect(button('Edit link').disabled).toBe(true);
+    expect(button('Remove link').disabled).toBe(true);
+    button('Edit link').click();
+    button('Remove link').click();
+    expect(api.remove).toHaveBeenCalledTimes(1);
+    expect(page.querySelector('form')).toBeNull();
+    pending.next({ ok: true, value: undefined });
+    fixture.detectChanges();
+    expect(button('Edit link').disabled).toBe(false);
+    expect(button('Remove link').disabled).toBe(false);
+  });
+
   it('preserves meaningful native Docs URL parameters and anchors on a label-only edit', () => {
     const savedUrl = TASK_DOC_URL + '?resourcekey=synthetic&tab=t.1#heading=h.notes';
     api.list.mockReturnValue(of({ ok: true, value: [taskDoc('document-one', savedUrl)] }));
@@ -327,6 +368,10 @@ describe('Task Details collection integration', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('app-task-documents li')).toHaveLength(1);
+    const documents = fixture.nativeElement.querySelector('app-task-documents') as HTMLElement;
+    expect(documents.classList.contains('block')).toBe(true);
+    expect(documents.parentElement?.classList.contains('space-y-6')).toBe(true);
+    expect(documents.nextElementSibling?.getAttribute('aria-labelledby')).toBe('comments-heading');
     expect(fixture.nativeElement.textContent).not.toContain('Legacy notes');
   });
 });

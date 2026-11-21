@@ -77,16 +77,42 @@
                 type="button"
                 (click)="edit(row.document)"
                 [disabled]="busy()"
-                class="rounded-lg px-3 py-2 underline disabled:opacity-50"
+                class="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-medium text-zinc-700 transition-colors enabled:hover:border-zinc-400 enabled:hover:bg-zinc-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
+                <svg
+                  viewBox="0 0 24 24"
+                  class="h-4 w-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" />
+                </svg>
                 Edit link<span class="sr-only">: {{ row.document.label }}</span>
               </button>
               <button
                 type="button"
                 (click)="remove(row.document)"
                 [disabled]="busy()"
-                class="rounded-lg px-3 py-2 text-red-700 underline disabled:opacity-50"
+                class="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 font-medium text-red-700 transition-colors enabled:hover:border-red-300 enabled:hover:bg-red-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
+                <svg
+                  viewBox="0 0 24 24"
+                  class="h-4 w-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+                </svg>
                 Remove link<span class="sr-only">: {{ row.document.label }}</span>
               </button>
             }
