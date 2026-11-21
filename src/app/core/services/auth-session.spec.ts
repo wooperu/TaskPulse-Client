@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiUrl } from '../config/api.config';
+import { InvitationService } from './invitation.service';
 import { WorkspaceService } from './workspace.service';
 import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
@@ -179,6 +180,15 @@ describe('AuthService session handling', () => {
 
     expect(workspaces.workspaces()).toEqual([]);
     expect(tokens.get()).toBeNull();
+  });
+
+  it('signOutLocally also clears the loaded invitations', () => {
+    const invitations = TestBed.inject(InvitationService);
+    const spy = vi.spyOn(invitations, 'clear');
+
+    auth.signOutLocally();
+
+    expect(spy).toHaveBeenCalledOnce();
   });
 
   it('expireSession clears the session', () => {
