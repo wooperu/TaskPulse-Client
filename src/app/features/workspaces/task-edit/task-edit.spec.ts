@@ -18,7 +18,13 @@ const YESTERDAY = addDaysToDateKey(TODAY, -1);
 const TOMORROW = addDaysToDateKey(TODAY, 1);
 const OVERDUE_INSTANT = '2026-01-10T15:59:59.999Z';
 
-const WORKSPACE = { id: 'w-1', name: 'Marketing', myRole: 'owner', memberCount: 2, isArchived: false } as const;
+const WORKSPACE = {
+  id: 'w-1',
+  name: 'Marketing',
+  myRole: 'owner',
+  memberCount: 2,
+  isArchived: false,
+} as const;
 
 const OVERDUE_TASK: Task = {
   id: 't-1',
@@ -86,13 +92,41 @@ describe('Task create and edit page', () => {
             loadMembers: () =>
               Promise.resolve({
                 ok: true,
-                value: [{ userId: 'u-2', name: 'Ana Reyes', email: 'ana@example.com', role: 'member', joinedAt: '' }],
+                value: [
+                  {
+                    userId: 'u-2',
+                    name: 'Ana Reyes',
+                    email: 'ana@example.com',
+                    role: 'member',
+                    joinedAt: '',
+                  },
+                ],
               }),
           },
         },
         { provide: TaskApiService, useValue: taskApi },
       ],
     });
+  });
+
+  it('preserves an untouched Drive compatibility slot when editing unrelated task fields', async () => {
+    const task = {
+      ...OVERDUE_TASK,
+      linkedDocument: {
+        url: 'https://drive.google.com/file/d/AbCdEfGhIjKl/view',
+        label: 'Existing DOCX link',
+      },
+    };
+    taskApi.getDetails.mockResolvedValue({ ok: true, value: details(task) });
+    taskApi.update.mockResolvedValue({ ok: true, taskId: task.id });
+    await open('/workspaces/w-1/tasks/t-1/edit');
+    type('#description', 'Unrelated change');
+    await submit();
+    expect(taskApi.update).toHaveBeenCalledWith(
+      task.id,
+      expect.objectContaining({ document: undefined }),
+    );
+    expect(taskApi.update).toHaveBeenCalledTimes(1);
   });
 
   describe('creating a task', () => {
@@ -123,7 +157,12 @@ describe('Task create and edit page', () => {
 
       expect(taskApi.create).toHaveBeenCalledWith(
         'w-1',
-        { title: 'Write spec', description: null, priority: 'medium', dueDateIso: dueDateToIso(TOMORROW) },
+        {
+          title: 'Write spec',
+          description: null,
+          priority: 'medium',
+          dueDateIso: dueDateToIso(TOMORROW),
+        },
         { assigneeId: null, document: null },
       );
       expect(navigate).toHaveBeenCalledWith(['/workspaces', 'w-1', 'tasks', 't-9']);
@@ -140,11 +179,17 @@ describe('Task create and edit page', () => {
       expect(taskApi.create.mock.calls[0][2]).toEqual({ assigneeId: 'u-2', document: null });
     });
 
-    it('continues on the new task\'s edit page, with the reason, when a later step failed', async () => {
+    it("continues on the new task's edit page, with the reason, when a later step failed", async () => {
       taskApi.create.mockResolvedValue({
         ok: false,
         step: 'assignee',
-        error: { kind: 'forbidden', status: 403, code: 'Task.NotAllowed', message: 'You are not allowed to do that.', fieldErrors: {} },
+        error: {
+          kind: 'forbidden',
+          status: 403,
+          code: 'Task.NotAllowed',
+          message: 'You are not allowed to do that.',
+          fieldErrors: {},
+        },
         taskId: 't-9',
         saved: ['details'],
         notAttempted: [],
@@ -154,7 +199,8 @@ describe('Task create and edit page', () => {
 
       expect(navigate).toHaveBeenCalledWith(['/workspaces', 'w-1', 'tasks', 't-9', 'edit'], {
         state: {
-          notice: 'The task was created, but the assignee could not be saved: You are not allowed to do that.',
+          notice:
+            'The task was created, but the assignee could not be saved: You are not allowed to do that.',
         },
       });
     });
@@ -163,7 +209,13 @@ describe('Task create and edit page', () => {
       taskApi.create.mockResolvedValue({
         ok: false,
         step: 'details',
-        error: { kind: 'bad-request', status: 400, code: 'Invalid.DueDate', message: 'Due date cannot be in the past.', fieldErrors: {} },
+        error: {
+          kind: 'bad-request',
+          status: 400,
+          code: 'Invalid.DueDate',
+          message: 'Due date cannot be in the past.',
+          fieldErrors: {},
+        },
         taskId: null,
         saved: [],
         notAttempted: [],
@@ -193,7 +245,12 @@ describe('Task create and edit page', () => {
       await submit();
 
       expect(taskApi.update).toHaveBeenCalledWith('t-1', {
-        details: { title: 'Old title', description: 'New description', priority: 'high', dueDateIso: OVERDUE_INSTANT },
+        details: {
+          title: 'Old title',
+          description: 'New description',
+          priority: 'high',
+          dueDateIso: OVERDUE_INSTANT,
+        },
         assigneeId: undefined,
         document: undefined,
       });
@@ -205,7 +262,9 @@ describe('Task create and edit page', () => {
       await submit();
 
       expect(taskApi.update).not.toHaveBeenCalled();
-      expect(page.textContent).toContain('This task is past due. Choose today or a later date to change its title.');
+      expect(page.textContent).toContain(
+        'This task is past due. Choose today or a later date to change its title.',
+      );
     });
 
     it('accepts a title change together with a new future date', async () => {
@@ -232,7 +291,13 @@ describe('Task create and edit page', () => {
       taskApi.update.mockResolvedValue({
         ok: false,
         step: 'assignee',
-        error: { kind: 'conflict', status: 409, code: 'Invalid.Assignee', message: 'Cannot assign the same person twice on a task.', fieldErrors: {} },
+        error: {
+          kind: 'conflict',
+          status: 409,
+          code: 'Invalid.Assignee',
+          message: 'Cannot assign the same person twice on a task.',
+          fieldErrors: {},
+        },
         taskId: 't-1',
         saved: ['details'],
         notAttempted: [],
@@ -252,7 +317,13 @@ describe('Task create and edit page', () => {
     it('shows the not-found page for a task the API does not know', async () => {
       taskApi.getDetails.mockResolvedValue({
         ok: false,
-        error: { kind: 'not-found', status: 404, code: 'Task.NotFound', message: 'Task not found.', fieldErrors: {} },
+        error: {
+          kind: 'not-found',
+          status: 404,
+          code: 'Task.NotFound',
+          message: 'Task not found.',
+          fieldErrors: {},
+        },
       });
       await open('/workspaces/w-1/tasks/t-x/edit');
 
@@ -262,7 +333,13 @@ describe('Task create and edit page', () => {
     it('offers a retry when loading failed for another reason', async () => {
       taskApi.getDetails.mockResolvedValue({
         ok: false,
-        error: { kind: 'server', status: 500, code: '', message: 'Something went wrong on our side. Please try again in a moment.', fieldErrors: {} },
+        error: {
+          kind: 'server',
+          status: 500,
+          code: '',
+          message: 'Something went wrong on our side. Please try again in a moment.',
+          fieldErrors: {},
+        },
       });
       await open('/workspaces/w-1/tasks/t-1/edit');
 

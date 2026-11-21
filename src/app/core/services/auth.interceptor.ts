@@ -4,6 +4,7 @@ import { catchError, from, switchMap, throwError } from 'rxjs';
 import { apiBaseUrl } from '../config/api.config';
 import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
+import { NO_AUTH_RETRY } from '../http/no-auth-retry';
 
 /** Endpoints that work without a session. They never get a token, and a 401 from them is never retried. */
 const ANONYMOUS_PATHS = [
@@ -46,11 +47,16 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
   if (!sentToken) return next(request);
 
-  const withToken = (token: string) => request.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+  const withToken = (token: string) =>
+    request.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
 
   return next(withToken(sentToken)).pipe(
     catchError((error: unknown) => {
-      if (!(error instanceof HttpErrorResponse) || error.status !== 401) {
+      if (
+        !(error instanceof HttpErrorResponse) ||
+        error.status !== 401 ||
+        request.context.get(NO_AUTH_RETRY)
+      ) {
         return throwError(() => error);
       }
 
