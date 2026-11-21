@@ -117,15 +117,15 @@
 
     <div class="space-y-6">
       <section aria-labelledby="invitations-heading" class="rounded-xl border border-zinc-200 bg-white">
-        <h2 id="invitations-heading" class="px-5 py-4 text-sm font-medium">Pending invitations ({{ invitations().length }})</h2>
+        <h2 id="invitations-heading" class="px-5 py-4 text-sm font-medium">Invitations ({{ invitations().length }})</h2>
         @if (invitations().length === 0) {
-          <p class="border-t border-zinc-100 px-5 py-6 text-center text-sm text-zinc-500">No pending invitations.</p>
+          <p class="border-t border-zinc-100 px-5 py-6 text-center text-sm text-zinc-500">No invitations.</p>
         } @else {
-          <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Pending invitations">
-            @for (invitation of invitations(); track invitation.id) {
+          <ul class="divide-y divide-zinc-100 border-t border-zinc-100" aria-label="Invitations">
+            @for (invitation of invitations(); track invitation.invitationId) {
               <li class="px-5 py-3">
-                <p class="break-words text-sm font-medium">{{ invitation.workspaceName }}</p>
-                <p class="mt-0.5 text-xs text-zinc-600">Invited by {{ invitation.invitedByName }} as {{ roleLabels[invitation.role] }}</p>
+                <p class="break-words text-sm font-medium">{{ invitation.message }}</p>
+                <p class="mt-0.5 text-xs text-zinc-600">Received {{ invitation.receivedAt | date: 'MMM d' }}</p>
               </li>
             }
           </ul>
