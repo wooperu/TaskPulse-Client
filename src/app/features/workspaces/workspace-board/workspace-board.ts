@@ -35,7 +35,7 @@ type AssigneeFilter = 'all' | 'me';
 /** The API allows 1 to 100 per page. */
 const PAGE_SIZE = 50;
 
-/** People shown in the panel before "+N more"; the Members page lists everyone. */
+/** Max people shown in the panel; the rest show as "+N more". */
 const PEOPLE_LIMIT = 8;
 
 @Component({
@@ -79,12 +79,12 @@ export class WorkspaceBoard {
   protected readonly loadingMore = signal(false);
   protected readonly errorMessage = signal('');
 
-  /** The workspace's people, owner first (the API's order). One request feeds the panel and the assignee column. */
+  /** The workspace's members; feeds the panel and the assignee column. */
   protected readonly members = signal<readonly WorkspaceMember[]>([]);
   protected readonly membersState = signal<'loading' | 'ready' | 'error'>('loading');
   protected readonly membersError = signal('');
 
-  /** Member names by user id, for the assignee column. */
+  /** Member names by user id. */
   private readonly memberNames = computed(
     () => new Map<string, string>(this.members().map((member) => [member.userId, member.name])),
   );
@@ -135,7 +135,7 @@ export class WorkspaceBoard {
       if (!id) return;
 
       untracked(() => {
-        // Another workspace: never show the previous one's people while this one loads.
+        // Clear the previous workspace's people.
         this.members.set([]);
         void this.loadMembers(id);
       });
@@ -235,11 +235,11 @@ export class WorkspaceBoard {
 
     const result = await this.workspaceService.loadMembers(workspaceId);
 
-    // The page moved to another workspace while this was in flight.
+    // Ignore a late answer for another workspace.
     if (workspaceId !== this.workspaceId()) return;
 
     if (!result.ok) {
-      // Without them the assignee column says "Teammate" and the task list still works.
+      // The task list still works; names fall back to "Teammate".
       this.membersError.set(result.error.message);
       this.membersState.set('error');
       return;

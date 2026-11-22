@@ -73,8 +73,7 @@ function classify(error: unknown): LoginFailureReason {
 }
 
 /**
- * Sign-in, sign-out and the token lifecycle. Tokens live in memory only (see
- * TokenStorage), so every page load starts signed out.
+ * Sign-in, sign-out and the token lifecycle. restoreSession signs the user back in after a reload.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -88,6 +87,9 @@ export class AuthService {
 
   /** The refresh call in flight, shared by everyone who needs it (see refreshSession). */
   private refreshing: Promise<RefreshResult> | null = null;
+
+  /** Shared so concurrent guards trigger only one refresh. */
+  private restoring: Promise<boolean> | null = null;
 
   /** Signs in, stores the tokens and loads the user. Never throws; failures come back as a reason. */
   async login(email: string, password: string): Promise<LoginOutcome> {
@@ -153,6 +155,41 @@ export class AuthService {
     const body: ResetPasswordRequest = { token, newPassword };
 
     return toApiResult(this.http.post<MessageResponse>(apiUrl('/api/auth/reset-password'), body));
+  }
+
+  /**
+   * Restores the session after a reload using the saved refresh token. True if signed in.
+   * A rejected token ends the session; an unreachable server keeps it for a later try.
+   */
+  restoreSession(): Promise<boolean> {
+    if (this.currentUser.isSignedIn()) return Promise.resolve(true);
+    if (!this.tokens.refreshToken()) return Promise.resolve(false);
+
+    this.restoring ??= this.restore().finally(() => {
+      this.restoring = null;
+    });
+
+    return this.restoring;
+  }
+
+  private async restore(): Promise<boolean> {
+    const result = await this.refreshSession(null);
+
+    if (result === 'rejected') {
+      this.signOutLocally();
+      return false;
+    }
+
+    if (result === 'unavailable') return false;
+
+    try {
+      await this.currentUser.load();
+      return true;
+    } catch (error) {
+      // Only a 401 ends the session; other failures (offline) keep it.
+      if (error instanceof HttpErrorResponse && error.status === 401) this.signOutLocally();
+      return false;
+    }
   }
 
   /**

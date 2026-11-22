@@ -1,16 +1,17 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 import { CurrentUserService } from '../services/current-user.service';
 
 /**
- * For pages meant for signed-out visitors (login, register, forgot password):
- * someone who is already signed in goes to their home page instead.
+ * For signed-out pages (login, register...): signed-in people, including a restored
+ * session after a reload, go to their home page instead.
  */
-export const guestGuard: CanActivateFn = () => {
+export const guestGuard: CanActivateFn = async () => {
   const router = inject(Router);
   const currentUser = inject(CurrentUserService);
 
-  if (!currentUser.isSignedIn()) return true;
+  if (!currentUser.isSignedIn() && !(await inject(AuthService).restoreSession())) return true;
 
   return router.createUrlTree([currentUser.isAdmin() ? '/admin' : '/dashboard']);
 };

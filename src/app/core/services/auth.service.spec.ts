@@ -29,6 +29,7 @@ describe('AuthService', () => {
   let auth: AuthService;
 
   beforeEach(() => {
+    sessionStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
@@ -311,5 +312,92 @@ describe('AuthService', () => {
 
     expect(await result).toMatchObject({ ok: false, error: { kind: 'server' } });
     expect(TestBed.inject(TokenStorage).accessToken()).toBe('access-1');
+  });
+
+  describe('restoring the session after a page reload', () => {
+    /** A refresh token left by the previous page load; the new page has no access token. */
+    function keepRefreshToken(): void {
+      TestBed.inject(TokenStorage).set(TOKENS);
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
+      });
+      http = TestBed.inject(HttpTestingController);
+      auth = TestBed.inject(AuthService);
+    }
+
+    it('does nothing when no session was kept', async () => {
+      expect(await auth.restoreSession()).toBe(false);
+      http.expectNone(apiUrl('/api/auth/refresh'));
+    });
+
+    it('trades the kept refresh token for a new session and loads the user', async () => {
+      keepRefreshToken();
+
+      const result = auth.restoreSession();
+
+      await flushMicrotasks();
+      const refresh = http.expectOne(apiUrl('/api/auth/refresh'));
+      expect(refresh.request.body).toEqual({ refreshToken: 'refresh-1' });
+      refresh.flush({ ...TOKENS, accessToken: 'access-2', refreshToken: 'refresh-2' });
+
+      await flushMicrotasks();
+      const me = http.expectOne(apiUrl('/api/users/get-user'));
+      expect(me.request.headers.get('Authorization')).toBe('Bearer access-2');
+      me.flush(ADMIN_USER);
+
+      expect(await result).toBe(true);
+      expect(TestBed.inject(CurrentUserService).isSignedIn()).toBe(true);
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBe('refresh-2');
+    });
+
+    it('shares one refresh between callers, so the token is never used twice', async () => {
+      keepRefreshToken();
+
+      const first = auth.restoreSession();
+      const second = auth.restoreSession();
+
+      await flushMicrotasks();
+      http.expectOne(apiUrl('/api/auth/refresh')).flush(TOKENS);
+      await flushMicrotasks();
+      http.expectOne(apiUrl('/api/users/get-user')).flush(ADMIN_USER);
+
+      expect(await Promise.all([first, second])).toEqual([true, true]);
+    });
+
+    it('ends the session when the API rejects the kept token', async () => {
+      keepRefreshToken();
+
+      const result = auth.restoreSession();
+
+      await flushMicrotasks();
+      http.expectOne(apiUrl('/api/auth/refresh')).flush(
+        { title: 'Refresh.InvalidRefreshToken', status: 401 },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+
+      expect(await result).toBe(false);
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBeNull();
+    });
+
+    it('keeps the kept token when the server cannot be reached, so a later try can work', async () => {
+      keepRefreshToken();
+
+      const result = auth.restoreSession();
+
+      await flushMicrotasks();
+      http.expectOne(apiUrl('/api/auth/refresh')).flush(null, { status: 503, statusText: 'Unavailable' });
+
+      expect(await result).toBe(false);
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBe('refresh-1');
+    });
+
+    it('stays signed out after logging out', async () => {
+      keepRefreshToken();
+      TestBed.inject(TokenStorage).clear();
+
+      expect(await auth.restoreSession()).toBe(false);
+      http.expectNone(apiUrl('/api/auth/refresh'));
+    });
   });
 });
