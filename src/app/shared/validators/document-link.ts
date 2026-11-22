@@ -2,7 +2,7 @@ import { AbstractControl, ValidationErrors } from '@angular/forms';
 
 /**
  * Frontend copy of the backend DocumentLink host allow-list (as of backend
- * commit 79d4925). The backend also applies per-host path rules (for example
+ * commit 38a9f41). Drive file paths are checked here; the backend also applies other per-host path rules (for example
  * Google links must be documents, spreadsheets or presentations, and GitHub
  * links need owner/repo); only the backend enforces those. Keep this list in
  * sync with the backend and confirm any change with the backend team.
@@ -42,6 +42,13 @@ export function documentUrlValidator(control: AbstractControl): ValidationErrors
 
   if (url.username || url.password || url.port) {
     return { documentUrl: 'invalid' };
+  }
+
+  // The multi-document backend also permits Drive file links. Do not accept folders/site pages.
+  if (url.hostname === 'drive.google.com') {
+    return /^\/file\/d\/[A-Za-z0-9_-]+(?:\/(?:view|edit|preview))?\/?$/.test(url.pathname)
+      ? null
+      : { documentUrl: 'invalid' };
   }
 
   return ALLOWED_HOSTS.has(url.hostname.toLowerCase()) ? null : { documentUrl: 'host' };

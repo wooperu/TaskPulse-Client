@@ -1,3 +1,5 @@
+import { TaskDocumentResponse } from './task-document.api';
+
 /**
  * Wire shapes for tasks and comments. `status` is the effective status: a
  * Pending or Ongoing task past its due date arrives as `Overdue`, and the stored
@@ -52,6 +54,8 @@ export interface TaskDetailsResponse {
   createdAtUtc: string;
   completedAtUtc: string | null;
   linkedDocument: DocumentLinkResponse | null;
+  /** Present on the multiple-documents backend. Never union with linkedDocument. */
+  documents?: TaskDocumentResponse[];
   comments: CommentResponse[];
 }
 
