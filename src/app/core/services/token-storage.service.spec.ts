@@ -10,7 +10,10 @@ const TOKENS: AuthTokens = {
 };
 
 describe('TokenStorage', () => {
-  beforeEach(() => TestBed.resetTestingModule());
+  beforeEach(() => {
+    sessionStorage.clear();
+    TestBed.resetTestingModule();
+  });
 
   afterEach(() => vi.restoreAllMocks());
 
@@ -41,23 +44,60 @@ describe('TokenStorage', () => {
     expect(storage.get()).toBeNull();
   });
 
-  it('does not survive a page reload (a fresh instance starts empty)', () => {
-    TestBed.inject(TokenStorage).set(TOKENS);
+  describe('across a page reload', () => {
+    beforeEach(() => sessionStorage.clear());
 
-    TestBed.resetTestingModule();
+    it('keeps only the refresh token; the access token starts empty again', () => {
+      TestBed.inject(TokenStorage).set(TOKENS);
+      TestBed.resetTestingModule();
 
-    expect(TestBed.inject(TokenStorage).get()).toBeNull();
-  });
+      const reloaded = TestBed.inject(TokenStorage);
 
-  it('never writes tokens to localStorage or sessionStorage', () => {
-    const local = vi.spyOn(Storage.prototype, 'setItem');
-    const storage = TestBed.inject(TokenStorage);
+      expect(reloaded.accessToken()).toBeNull();
+      expect(reloaded.refreshToken()).toBe('refresh');
+      expect(JSON.stringify(sessionStorage)).not.toContain('"access"');
+      expect(JSON.stringify(localStorage)).not.toContain('refresh');
+    });
 
-    storage.set(TOKENS);
-    storage.clear();
+    it('stores each new refresh token, since the old one stops working', () => {
+      const storage = TestBed.inject(TokenStorage);
+      storage.set(TOKENS);
+      storage.set({ ...TOKENS, accessToken: 'access-2', refreshToken: 'refresh-2' });
+      TestBed.resetTestingModule();
 
-    expect(local).not.toHaveBeenCalled();
-    expect(JSON.stringify(localStorage)).not.toContain('access');
-    expect(JSON.stringify(sessionStorage)).not.toContain('access');
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBe('refresh-2');
+    });
+
+    it('forgets everything on clear', () => {
+      TestBed.inject(TokenStorage).set(TOKENS);
+      TestBed.inject(TokenStorage).clear();
+      TestBed.resetTestingModule();
+
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBeNull();
+    });
+
+    it('ignores and removes a refresh token that has expired', () => {
+      TestBed.inject(TokenStorage).set({ ...TOKENS, refreshTokenExpiresAtUtc: '2020-01-01T00:00:00Z' });
+      TestBed.resetTestingModule();
+
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBeNull();
+      expect(sessionStorage.length).toBe(0);
+    });
+
+    it('ignores unreadable stored data', () => {
+      sessionStorage.setItem('taskpulse.refresh', '{not json');
+
+      expect(TestBed.inject(TokenStorage).refreshToken()).toBeNull();
+    });
+
+    it('still works for the current page when storage is blocked', () => {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('blocked');
+      });
+      const storage = TestBed.inject(TokenStorage);
+
+      expect(() => storage.set(TOKENS)).not.toThrow();
+      expect(storage.refreshToken()).toBe('refresh');
+    });
   });
 });

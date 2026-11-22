@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 import { CurrentUserService } from '../services/current-user.service';
 
 /**
@@ -8,11 +9,11 @@ import { CurrentUserService } from '../services/current-user.service';
  *
  * This only decides what the UI shows. The API enforces the Admin role on its own.
  */
-export const adminGuard: CanActivateFn = (_route, state) => {
+export const adminGuard: CanActivateFn = async (_route, state) => {
   const router = inject(Router);
   const currentUser = inject(CurrentUserService);
 
-  if (!currentUser.isSignedIn()) {
+  if (!currentUser.isSignedIn() && !(await inject(AuthService).restoreSession())) {
     return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   }
 

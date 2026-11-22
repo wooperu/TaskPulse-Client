@@ -24,6 +24,7 @@ describe('AuthService session handling', () => {
   let tokens: TokenStorage;
 
   beforeEach(() => {
+    sessionStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
